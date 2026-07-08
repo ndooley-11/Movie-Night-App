@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { db, ROOM_ID } from "./firebase.js";
-import { Film, Search, Plus, Shuffle, Star, Heart, X, Check, Settings, Trash2, RefreshCw, Ticket, Users, ThumbsDown, Eye, Award, PlayCircle } from "lucide-react";
+import { Film, Search, Plus, Shuffle, Star, Heart, X, Check, Settings, Trash2, RefreshCw, Ticket, Users, ThumbsDown, Eye, Award, PlayCircle, Flame } from "lucide-react";
 
 const SERVICES = ["Netflix", "Hulu", "Max", "Disney+", "Prime Video", "Apple TV+", "Paramount+", "Peacock"];
 const REGIONS = [["US", "United States"], ["CA", "Canada"], ["GB", "United Kingdom"], ["AU", "Australia"]];
@@ -13,6 +13,7 @@ const roomRef = doc(db, "movienight", ROOM_ID);
 function useRoom() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [movies, setMovies] = useState([]);
+  const [swipes, setSwipes] = useState({});
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
@@ -23,6 +24,7 @@ function useRoom() {
         const data = snap.data() || {};
         setSettings(data.settings || DEFAULT_SETTINGS);
         setMovies(data.movies || []);
+        setSwipes(data.swipes || {});
         setReady(true);
       },
       (err) => setError(err.message)
@@ -40,7 +42,11 @@ function useRoom() {
     await setDoc(roomRef, { movies: next }, { merge: true });
   }, []);
 
-  return { settings, movies, saveSettings, saveMovies, ready, error };
+  const setSwipe = useCallback(async (name, tmdbId, value) => {
+    await updateDoc(roomRef, { [`swipes.${name}.${tmdbId}`]: value });
+  }, []);
+
+  return { settings, movies, swipes, saveSettings, saveMovies, setSwipe, ready, error };
 }
 
 function usePersonal(key, fallback) {
@@ -58,6 +64,7 @@ function usePersonal(key, fallback) {
 }
 
 const posterUrl = (p) => p ? `https://image.tmdb.org/t/p/w342${p}` : null;
+const backdropUrl = (p) => p ? `https://image.tmdb.org/t/p/w780${p}` : null;
 
 async function tmdb(path, apiKey) {
   const sep = path.includes("?") ? "&" : "?";
@@ -83,7 +90,7 @@ function Notches() {
 }
 
 export default function App() {
-  const { settings, movies, saveSettings, saveMovies, ready, error } = useRoom();
+  const { settings, movies, swipes, saveSettings, saveMovies, setSwipe, ready, error } = useRoom();
   const [meIdx, saveMeIdx] = usePersonal("mn-me", 0);
   const [tab, setTab] = useState("suggest");
   const [genreMap, setGenreMap] = useState({});
@@ -95,11 +102,12 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [rateModal, setRateModal] = useState(null);
   const debounceRef = useRef(null);
+  const addingRef = useRef(new Set());
 
   const me = settings.names[meIdx] || "Player 1";
   const partner = settings.names[1 - meIdx] || "Player 2";
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
 
   useEffect(() => {
     if (!settings.apiKey) return;
@@ -179,6 +187,35 @@ export default function App() {
     await saveMovies(movies.map((m) => m.id === id ? { ...m, ratings: { ...m.ratings, [me]: val } } : m));
   }
 
+  useEffect(() => {
+    if (!settings.apiKey || !ready) return;
+    const mySwipes = swipes[me] || {};
+    const partnerSwipes = swipes[partner] || {};
+    const pending = Object.entries(mySwipes).filter(
+      ([id, val]) => val === "like" && partnerSwipes[id] === "like" && !movies.some((m) => String(m.tmdbId) === id) && !addingRef.current.has(id)
+    );
+    if (pending.length === 0) return;
+    (async () => {
+      for (const [id] of pending) {
+        addingRef.current.add(id);
+        try {
+          const d = await tmdb(`/movie/${id}`, settings.apiKey);
+          const providers = await fetchProviders(id);
+          const movie = {
+            id: uid(), tmdbId: d.id, title: d.title, year: (d.release_date || "").slice(0, 4),
+            poster: posterUrl(d.poster_path), genreNames: (d.genres || []).map((g) => g.name),
+            addedBy: `${settings.names[0]} + ${settings.names[1]}`, addedAt: Date.now(),
+            watched: false, watchedAt: null, ratings: {}, hype: {}, providers,
+          };
+          if (!movies.some((m) => String(m.tmdbId) === id)) {
+            await saveMovies([movie, ...movies]);
+            showToast(`It's a match! Added "${d.title}"`);
+          }
+        } catch (e) {}
+      }
+    })();
+  }, [swipes, movies, me, partner, settings.apiKey, ready]);
+
   const allGenres = Array.from(new Set(movies.flatMap((m) => m.genreNames || []))).sort();
   const myServices = settings.services[me] || [];
   const partnerServices = settings.services[partner] || [];
@@ -209,13 +246,16 @@ export default function App() {
 
       {!settings.apiKey && tab !== "settings" && (
         <div className="banner" onClick={() => setTab("settings")}>
-          Add a free TMDB API key in Settings to search titles and see streaming availability.
+          Add a free TMDB API key in Settings to search titles, discover new ones, and see streaming availability.
         </div>
       )}
 
       <main className="content">
         {tab === "suggest" && (
           <SuggestTab {...{ settings, query, setQuery, results, searching, addFromTmdb, manualMode, setManualMode, manual, setManual, addManual, movies, me, householdServices, haveIt, toggleHype, markWatched, removeMovie }} />
+        )}
+        {tab === "discover" && (
+          <DiscoverTab settings={settings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showToast={showToast} />
         )}
         {tab === "pick" && (
           <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} haveIt={haveIt} markWatched={markWatched} />
@@ -241,11 +281,12 @@ export default function App() {
       {toast && <div className="toast">{toast}</div>}
 
       <nav className="tabbar">
-        <TabBtn icon={<Plus size={18} />} label="Suggest" active={tab === "suggest"} onClick={() => setTab("suggest")} />
-        <TabBtn icon={<Shuffle size={18} />} label="Pick" active={tab === "pick"} onClick={() => setTab("pick")} />
-        <TabBtn icon={<Eye size={18} />} label="Watched" active={tab === "watched"} onClick={() => setTab("watched")} />
-        <TabBtn icon={<Award size={18} />} label="Stats" active={tab === "stats"} onClick={() => setTab("stats")} />
-        <TabBtn icon={<Settings size={18} />} label="Setup" active={tab === "settings"} onClick={() => setTab("settings")} />
+        <TabBtn icon={<Plus size={17} />} label="Suggest" active={tab === "suggest"} onClick={() => setTab("suggest")} />
+        <TabBtn icon={<Flame size={17} />} label="Discover" active={tab === "discover"} onClick={() => setTab("discover")} />
+        <TabBtn icon={<Shuffle size={17} />} label="Pick" active={tab === "pick"} onClick={() => setTab("pick")} />
+        <TabBtn icon={<Eye size={17} />} label="Watched" active={tab === "watched"} onClick={() => setTab("watched")} />
+        <TabBtn icon={<Award size={17} />} label="Stats" active={tab === "stats"} onClick={() => setTab("stats")} />
+        <TabBtn icon={<Settings size={17} />} label="Setup" active={tab === "settings"} onClick={() => setTab("settings")} />
       </nav>
     </div>
   );
@@ -291,7 +332,7 @@ function SuggestTab(props) {
       )}
 
       <h2 className="section-title">On the list ({list.length})</h2>
-      {list.length === 0 && <div className="empty-state">No suggestions yet. Search above to add the first one.</div>}
+      {list.length === 0 && <div className="empty-state">No suggestions yet. Search above, or try Discover to swipe through new ideas.</div>}
       <div className="list">
         {list.map((m) => (
           <MovieCard key={m.id} m={m} me={me} householdServices={householdServices} haveIt={haveIt(m)} toggleHype={toggleHype} markWatched={markWatched} removeMovie={removeMovie} />
@@ -329,6 +370,192 @@ function MovieCard({ m, me, haveIt, toggleHype, markWatched, removeMovie }) {
         <button className="icon-btn" onClick={() => markWatched(m.id, true)} aria-label="Mark watched"><PlayCircle size={16} /></button>
         <button className="icon-btn" onClick={() => removeMovie(m.id)} aria-label="Remove"><Trash2 size={16} /></button>
       </div>
+    </div>
+  );
+}
+
+function DiscoverTab({ settings, genreMap, movies, me, partner, swipes, setSwipe, showToast }) {
+  const [mode, setMode] = useState("discover");
+  const [genreFilter, setGenreFilter] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [theirQueue, setTheirQueue] = useState([]);
+  const [theirLoading, setTheirLoading] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [exiting, setExiting] = useState(null);
+  const startX = useRef(0);
+  const fetchedRef = useRef(new Set());
+
+  const mySwipes = swipes[me] || {};
+  const partnerSwipes = swipes[partner] || {};
+  const knownIds = new Set([
+    ...movies.map((m) => String(m.tmdbId)),
+    ...Object.keys(mySwipes),
+  ]);
+
+  const partnerPendingIds = Object.entries(partnerSwipes)
+    .filter(([id, v]) => v === "like" && !mySwipes[id] && !movies.some((m) => String(m.tmdbId) === id))
+    .map(([id]) => id);
+
+  const loadMore = useCallback(async (resetPage) => {
+    if (!settings.apiKey || loading) return;
+    setLoading(true);
+    try {
+      const p = resetPage ? 1 : page;
+      const genreParam = genreFilter ? `&with_genres=${genreFilter}` : "";
+      const d = await tmdb(`/discover/movie?sort_by=popularity.desc&include_adult=false&page=${p}${genreParam}`, settings.apiKey);
+      const fresh = (d.results || []).filter((r) => !knownIds.has(String(r.id)));
+      setQueue((q) => resetPage ? fresh : [...q, ...fresh]);
+      setPage(p + 1);
+    } catch (e) {}
+    setLoading(false);
+  }, [settings.apiKey, page, genreFilter, loading]);
+
+  useEffect(() => {
+    setQueue([]);
+    setPage(1);
+    if (mode === "discover") loadMore(true);
+  }, [genreFilter, settings.apiKey, mode]);
+
+  useEffect(() => {
+    if (mode === "discover" && queue.length <= 2 && !loading && settings.apiKey) loadMore(false);
+  }, [queue.length, mode]);
+
+  useEffect(() => {
+    if (!settings.apiKey) return;
+    const toFetch = partnerPendingIds.filter((id) => !fetchedRef.current.has(id));
+    if (toFetch.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setTheirLoading(true);
+      const fetched = [];
+      for (const id of toFetch) {
+        fetchedRef.current.add(id);
+        try {
+          const d = await tmdb(`/movie/${id}`, settings.apiKey);
+          fetched.push({ id: d.id, title: d.title, poster_path: d.poster_path, overview: d.overview, release_date: d.release_date, genre_ids: (d.genres || []).map((g) => g.id) });
+        } catch (e) {}
+      }
+      if (!cancelled) setTheirQueue((q) => [...q, ...fetched]);
+      setTheirLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [swipes, movies, settings.apiKey]);
+
+  useEffect(() => {
+    setTheirQueue((q) => q.filter((m) => partnerPendingIds.includes(String(m.id))));
+  }, [swipes, movies]);
+
+  const activeQueue = mode === "discover" ? queue : theirQueue;
+  const activeLoading = mode === "discover" ? loading : theirLoading;
+
+  function commitSwipe(liked) {
+    const current = activeQueue[0];
+    if (!current) return;
+    setExiting(liked ? "right" : "left");
+    setSwipe(me, current.id, liked ? "like" : "pass");
+    setTimeout(() => {
+      if (mode === "discover") setQueue((q) => q.slice(1));
+      else setTheirQueue((q) => q.slice(1));
+      setExiting(null);
+      setDragX(0);
+    }, 220);
+  }
+
+  function onPointerDown(e) {
+    startX.current = e.clientX;
+    setDragging(true);
+  }
+  function onPointerMove(e) {
+    if (!dragging) return;
+    setDragX(e.clientX - startX.current);
+  }
+  function onPointerUp() {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragX > 90) commitSwipe(true);
+    else if (dragX < -90) commitSwipe(false);
+    else setDragX(0);
+  }
+
+  const genreOptions = Object.entries(genreMap);
+  const current = activeQueue[0];
+  const next = activeQueue[1];
+
+  return (
+    <div>
+      <h2 className="section-title">Discover</h2>
+      <div className="mode-row">
+        <button className={"mode-btn" + (mode === "discover" ? " active" : "")} onClick={() => setMode("discover")}>New for you</button>
+        <button className={"mode-btn" + (mode === "theirs" ? " active" : "")} onClick={() => setMode("theirs")}>
+          {partner} liked{partnerPendingIds.length > 0 && <span className="mode-badge">{partnerPendingIds.length}</span>}
+        </button>
+      </div>
+
+      {mode === "discover" && (
+        <div className="chip-row">
+          <button className={"chip" + (genreFilter === null ? " active" : "")} onClick={() => setGenreFilter(null)}>All</button>
+          {genreOptions.slice(0, 10).map(([id, name]) => (
+            <button key={id} className={"chip" + (genreFilter === id ? " active" : "")} onClick={() => setGenreFilter(id)}>{name}</button>
+          ))}
+        </div>
+      )}
+
+      {!settings.apiKey && <div className="empty-state" style={{ marginTop: 14 }}>Add a TMDB key in Settings to start discovering.</div>}
+
+      {settings.apiKey && (
+        <div className="swipe-stack">
+          {!current && !activeLoading && mode === "discover" && (
+            <div className="empty-state">You're all caught up — check back later for more picks, or try a different genre.</div>
+          )}
+          {!current && !activeLoading && mode === "theirs" && (
+            <div className="empty-state">Nothing waiting on you right now — {partner} hasn't liked anything you haven't already seen.</div>
+          )}
+          {!current && activeLoading && <p className="hint" style={{ textAlign: "center" }}>Loading movies…</p>}
+
+          {next && (
+            <div className="swipe-card behind">
+              {next.poster_path ? <img src={backdropUrl(next.poster_path) || posterUrl(next.poster_path)} alt="" /> : <div className="poster-fallback big" />}
+            </div>
+          )}
+
+          {current && (
+            <div
+              className={"swipe-card" + (exiting ? " exit-" + exiting : "")}
+              style={{ transform: `translateX(${dragX}px) rotate(${dragX / 20}deg)`, opacity: dragging ? 1 - Math.min(Math.abs(dragX) / 400, 0.3) : 1 }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+            >
+              <Notches />
+              {current.poster_path ? <img src={posterUrl(current.poster_path)} alt="" className="swipe-poster" /> : <div className="poster-fallback big"><Film size={28} /></div>}
+              <div className="swipe-info">
+                <div className="reveal-title">{current.title} {current.release_date && <span className="ticket-year">'{current.release_date.slice(2, 4)}</span>}</div>
+                <div className="tag-row" style={{ justifyContent: "center" }}>
+                  {(current.genre_ids || []).slice(0, 3).map((gid) => genreMap[gid] && <span key={gid} className="genre-tag">{genreMap[gid]}</span>)}
+                </div>
+                {current.overview && <p className="swipe-overview">{current.overview.length > 130 ? current.overview.slice(0, 130) + "…" : current.overview}</p>}
+              </div>
+              {mode === "theirs" && <div className="swipe-stamp their-pick">{partner}'S PICK</div>}
+              {dragX > 40 && <div className="swipe-stamp like">LIKE</div>}
+              {dragX < -40 && <div className="swipe-stamp pass">PASS</div>}
+            </div>
+          )}
+
+          {current && (
+            <div className="swipe-actions">
+              <button className="swipe-btn swipe-btn-pass" onClick={() => commitSwipe(false)} aria-label="Pass"><X size={22} /></button>
+              <button className="swipe-btn swipe-btn-like" onClick={() => commitSwipe(true)} aria-label="Like"><Heart size={22} /></button>
+            </div>
+          )}
+          <p className="hint" style={{ textAlign: "center", marginTop: 10 }}>
+            {mode === "discover" ? "Swipe or tap — when you both like the same one, it's added automatically." : `These are movies ${partner} already liked. Like one back and it goes straight to your list.`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -503,7 +730,7 @@ function SettingsTab({ settings, saveSettings, me, showToast }) {
       </div>
 
       <h2 className="section-title">TMDB API key</h2>
-      <p className="hint">Free at themoviedb.org → Settings → API. Enables search and streaming lookup for everyone using this app.</p>
+      <p className="hint">Free at themoviedb.org → Settings → API. Enables search, discover, and streaming lookup for everyone using this app.</p>
       <input className="input" type="password" placeholder="Paste your TMDB API key" value={local.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
 
       <h2 className="section-title">Region</h2>
@@ -590,7 +817,7 @@ function Style() {
       .notch-l { left:-7px; } .notch-r { right:-7px; }
       .ticket-poster img, .ticket-poster .poster-fallback { width:52px; height:78px; object-fit:cover; border-radius:6px; }
       .poster-fallback { background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--muted); }
-      .poster-fallback.big { width:110px; height:160px; margin:0 auto 10px; border-radius:8px; }
+      .poster-fallback.big { width:100%; height:100%; border-radius:14px; }
       .ticket-body { flex:1; min-width:0; }
       .ticket-title { font-size:15px; font-weight:600; line-height:1.25; }
       .ticket-year { color:var(--muted); font-weight:400; font-size:12.5px; }
@@ -630,12 +857,37 @@ function Style() {
       .highlight-box { margin-top:14px; background:var(--surface2); border-left:3px solid var(--gold); border-radius:8px; padding:10px 12px; font-size:13px; display:flex; align-items:center; gap:8px; }
       .install-tip { margin-top:26px; font-size:12px; color:var(--muted); background:var(--surface2); padding:12px; border-radius:10px; }
       .toast { position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--gold); color:#2b1d05;
-        padding:9px 18px; border-radius:20px; font-size:13px; font-weight:600; white-space:nowrap; z-index:20; }
+        padding:9px 18px; border-radius:20px; font-size:13px; font-weight:600; white-space:nowrap; z-index:20; max-width:90%; text-align:center; }
       .tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; display:flex; background:var(--surface); border-top:1px solid var(--border); padding:6px 4px; }
-      .tab { flex:1; background:none; border:none; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 0; font-size:10.5px; cursor:pointer; }
+      .tab { flex:1; background:none; border:none; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 0; font-size:10px; cursor:pointer; }
       .tab.active { color:var(--gold); }
       .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding:24px; z-index:30; }
       .modal { position:relative; background:var(--surface); border:1px solid var(--gold); border-radius:14px; padding:20px; width:100%; max-width:280px; }
+      .swipe-stack { position:relative; margin-top:16px; height:440px; display:flex; flex-direction:column; align-items:center; }
+      .swipe-card { position:absolute; top:0; width:100%; max-width:280px; height:360px; background:var(--surface); border:1px solid var(--border);
+        border-radius:16px; overflow:hidden; touch-action:none; cursor:grab; transition:transform 0.2s, opacity 0.2s; display:flex; flex-direction:column; }
+      .swipe-card.behind { opacity:0.5; transform:scale(0.96) translateY(6px); z-index:0; }
+      .swipe-card:not(.behind) { z-index:1; }
+      .swipe-card.exit-right { transform:translateX(500px) rotate(20deg) !important; opacity:0; }
+      .swipe-card.exit-left { transform:translateX(-500px) rotate(-20deg) !important; opacity:0; }
+      .swipe-poster { width:100%; height:230px; object-fit:cover; }
+      .swipe-info { padding:10px 12px; text-align:center; flex:1; overflow:hidden; }
+      .swipe-overview { font-size:11.5px; color:var(--muted); margin-top:6px; line-height:1.4; }
+      .swipe-stamp { position:absolute; top:16px; font-family:'Bebas Neue',Impact,sans-serif; font-size:22px; letter-spacing:2px;
+        padding:4px 12px; border-radius:6px; border:3px solid; transform:rotate(-12deg); }
+      .swipe-stamp.like { right:16px; color:var(--green); border-color:var(--green); }
+      .swipe-stamp.pass { left:16px; color:var(--red); border-color:var(--red); transform:rotate(12deg); }
+      .swipe-stamp.their-pick { top:auto; bottom:14px; left:50%; transform:translateX(-50%); font-size:11px; letter-spacing:1px;
+        padding:3px 10px; color:var(--gold); border-color:var(--gold); border-width:2px; }
+      .mode-row { display:flex; gap:8px; margin-top:6px; }
+      .mode-btn { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:10px;
+        padding:9px 10px; font-size:12.5px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; }
+      .mode-btn.active { background:var(--gold); border-color:var(--gold); color:#2b1d05; }
+      .mode-badge { background:var(--red); color:white; font-size:10px; border-radius:8px; padding:1px 6px; }
+      .swipe-actions { position:relative; margin-top:370px; display:flex; gap:24px; z-index:2; }
+      .swipe-btn { width:52px; height:52px; border-radius:50%; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+      .swipe-btn-pass { color:var(--red); }
+      .swipe-btn-like { color:var(--green); }
     `}</style>
   );
 }
