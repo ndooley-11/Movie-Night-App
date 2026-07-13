@@ -1,0 +1,51 @@
+{
+  "_comment": "Copy this file to config.json and fill in real values. Never commit config.json.",
+
+  "league": {
+    "name": "My Fantasy League 2026",
+    "season_year": 2026,
+    "scoring": "half_ppr",
+    "roster_positions": ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "DST", "K"]
+  },
+
+  "smtp": {
+    "_comment": "Gmail example: host smtp.gmail.com, port 587, use an App Password (not your real password) if 2FA is on.",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "use_tls": true,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password-here",
+    "from_address": "your-email@gmail.com",
+    "to_addresses": ["your-email@gmail.com"]
+  },
+
+  "apis": {
+    "_comment": "All optional. The agent works with free/no-key sources and bundled fixtures if these are blank.",
+    "college_football_data_api_key": ""
+  },
+
+  "sources": {
+    "sleeper_base_url": "https://api.sleeper.app/v1",
+    "news_rss_feeds": [
+      "https://www.espn.com/espn/rss/nfl/news",
+      "https://www.reddit.com/r/fantasyfootball/.rss",
+      "https://www.reddit.com/r/nfl/.rss"
+    ]
+  },
+
+  "paths": {
+    "database": "data/fantasy.db",
+    "csv_output": "data/output/fantasy_rankings_2026.csv",
+    "xlsx_output": "data/output/fantasy_rankings_2026.xlsx"
+  },
+
+  "scheduler": {
+    "_comment": "Dates that drive the Phase 1/2/3 cadence switch. Format YYYY-MM-DD.",
+    "draft_season_start": "2026-08-01",
+    "season_kickoff": "2026-09-09",
+    "season_end": "2027-01-05",
+    "weekly_run_day": "monday",
+    "weekly_run_time": "07:00",
+    "daily_run_time": "07:00"
+  }
+}

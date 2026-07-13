@@ -1,0 +1,23 @@
+[
+  {
+    "player_name": "Marcus Feldman",
+    "college": "Ohio State",
+    "college_stats": {"season": 2025, "games_played": 13, "rush_yds": 1340, "rush_td": 15, "rec": 28, "rec_yds": 310, "yards_per_carry": 5.9},
+    "draft_capital": {"round": 2, "pick": 41},
+    "scouting_note": "Vision and contact balance grade well; workload will hinge on winning the third-down role."
+  },
+  {
+    "player_name": "Devon Whitfield",
+    "college": "Georgia",
+    "college_stats": {"season": 2025, "games_played": 14, "rec": 71, "rec_yds": 1120, "rec_td": 11, "yards_per_reception": 15.8},
+    "draft_capital": {"round": 1, "pick": 19},
+    "scouting_note": "Polished route tree for a rookie; profiles as an early-down target in a pass-heavy offense."
+  },
+  {
+    "player_name": "Caleb Hutchins",
+    "college": "Iowa",
+    "college_stats": {"season": 2025, "games_played": 12, "rec": 42, "rec_yds": 560, "rec_td": 6, "yards_per_reception": 13.3},
+    "draft_capital": {"round": 3, "pick": 78},
+    "scouting_note": "Reliable blocker with developing hands; likely TE2 role as a rookie behind the starter."
+  }
+]

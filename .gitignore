@@ -1,3 +1,13 @@
 node_modules
 dist
 .DS_Store
+
+# fantasy-football-agent
+fantasy-football-agent/config.json
+fantasy-football-agent/.env
+fantasy-football-agent/data/fantasy.db
+fantasy-football-agent/data/output/
+fantasy-football-agent/data/scheduler.log
+fantasy-football-agent/__pycache__/
+fantasy-football-agent/**/__pycache__/
+fantasy-football-agent/.venv/

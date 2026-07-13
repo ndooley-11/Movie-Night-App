@@ -1,0 +1,38 @@
+[
+  {"player_id": "qb_mahomes", "name": "Patrick Mahomes", "position": "QB", "team": "KC", "age": 30, "is_rookie": false},
+  {"player_id": "qb_allen", "name": "Josh Allen", "position": "QB", "team": "BUF", "age": 30, "is_rookie": false},
+  {"player_id": "qb_jackson", "name": "Lamar Jackson", "position": "QB", "team": "BAL", "age": 29, "is_rookie": false},
+  {"player_id": "qb_burrow", "name": "Joe Burrow", "position": "QB", "team": "CIN", "age": 29, "is_rookie": false},
+  {"player_id": "qb_herbert", "name": "Justin Herbert", "position": "QB", "team": "LAC", "age": 28, "is_rookie": false},
+
+  {"player_id": "rb_mccaffrey", "name": "Christian McCaffrey", "position": "RB", "team": "SF", "age": 30, "is_rookie": false},
+  {"player_id": "rb_barkley", "name": "Saquon Barkley", "position": "RB", "team": "PHI", "age": 29, "is_rookie": false},
+  {"player_id": "rb_jgibbs", "name": "Jahmyr Gibbs", "position": "RB", "team": "DET", "age": 24, "is_rookie": false},
+  {"player_id": "rb_bijan", "name": "Bijan Robinson", "position": "RB", "team": "ATL", "age": 24, "is_rookie": false},
+  {"player_id": "rb_jtaylor", "name": "Jonathan Taylor", "position": "RB", "team": "IND", "age": 27, "is_rookie": false},
+  {"player_id": "rb_dhenry", "name": "Derrick Henry", "position": "RB", "team": "BAL", "age": 32, "is_rookie": false},
+  {"player_id": "rb_achase_placeholder", "name": "Marcus Feldman", "position": "RB", "team": "NE", "age": 22, "is_rookie": true, "college": "Ohio State"},
+
+  {"player_id": "wr_jchase", "name": "Ja'Marr Chase", "position": "WR", "team": "CIN", "age": 26, "is_rookie": false},
+  {"player_id": "wr_clamb", "name": "CeeDee Lamb", "position": "WR", "team": "DAL", "age": 27, "is_rookie": false},
+  {"player_id": "wr_jjefferson", "name": "Justin Jefferson", "position": "WR", "team": "MIN", "age": 27, "is_rookie": false},
+  {"player_id": "wr_ahill", "name": "Tyreek Hill", "position": "WR", "team": "MIA", "age": 32, "is_rookie": false},
+  {"player_id": "wr_ademariol", "name": "Amon-Ra St. Brown", "position": "WR", "team": "DET", "age": 26, "is_rookie": false},
+  {"player_id": "wr_nharris_placeholder", "name": "Devon Whitfield", "position": "WR", "team": "CHI", "age": 22, "is_rookie": true, "college": "Georgia"},
+  {"player_id": "wr_dlondon", "name": "Drake London", "position": "WR", "team": "ATL", "age": 24, "is_rookie": false},
+
+  {"player_id": "te_kelce", "name": "Travis Kelce", "position": "TE", "team": "KC", "age": 36, "is_rookie": false},
+  {"player_id": "te_bbowers", "name": "Brock Bowers", "position": "TE", "team": "LV", "age": 23, "is_rookie": false},
+  {"player_id": "te_slaporta", "name": "Sam LaPorta", "position": "TE", "team": "DET", "age": 24, "is_rookie": false},
+  {"player_id": "te_rookie_placeholder", "name": "Caleb Hutchins", "position": "TE", "team": "NYJ", "age": 22, "is_rookie": true, "college": "Iowa"},
+
+  {"player_id": "k_tbass", "name": "Tyler Bass", "position": "K", "team": "BUF", "age": 28, "is_rookie": false},
+  {"player_id": "k_jmcpherson", "name": "Evan McPherson", "position": "K", "team": "CIN", "age": 26, "is_rookie": false},
+
+  {"player_id": "dst_sf", "name": "49ers D/ST", "position": "DST", "team": "SF", "age": null, "is_rookie": false},
+  {"player_id": "dst_bal", "name": "Ravens D/ST", "position": "DST", "team": "BAL", "age": null, "is_rookie": false},
+
+  {"player_id": "rb_jconner", "name": "James Conner", "position": "RB", "team": "ARI", "age": 30, "is_rookie": false},
+  {"player_id": "wr_gpickens", "name": "George Pickens", "position": "WR", "team": "DAL", "age": 24, "is_rookie": false},
+  {"player_id": "qb_jdaniels", "name": "Jayden Daniels", "position": "QB", "team": "WAS", "age": 25, "is_rookie": false}
+]

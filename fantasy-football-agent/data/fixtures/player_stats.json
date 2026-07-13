@@ -1,0 +1,35 @@
+{
+  "_comment": "Fixture/demo data: illustrative 2025-season totals used when live stat sources are unreachable. Replace with real fetch output for production use.",
+  "qb_mahomes":   {"season": 2025, "games_played": 16, "fantasy_points": 348.2, "pass_yds": 4320, "pass_td": 32, "int": 11, "rush_yds": 210, "rush_td": 3},
+  "qb_allen":     {"season": 2025, "games_played": 17, "fantasy_points": 392.6, "pass_yds": 4100, "pass_td": 33, "int": 9,  "rush_yds": 620, "rush_td": 12},
+  "qb_jackson":   {"season": 2025, "games_played": 16, "fantasy_points": 370.4, "pass_yds": 3600, "pass_td": 28, "int": 7,  "rush_yds": 780, "rush_td": 6},
+  "qb_burrow":    {"season": 2025, "games_played": 17, "fantasy_points": 355.1, "pass_yds": 4550, "pass_td": 35, "int": 12, "rush_yds": 90,  "rush_td": 1},
+  "qb_herbert":   {"season": 2025, "games_played": 16, "fantasy_points": 298.7, "pass_yds": 3900, "pass_td": 24, "int": 8,  "rush_yds": 150, "rush_td": 2},
+  "qb_jdaniels":  {"season": 2025, "games_played": 15, "fantasy_points": 312.4, "pass_yds": 3400, "pass_td": 22, "int": 8,  "rush_yds": 690, "rush_td": 7},
+
+  "rb_mccaffrey": {"season": 2025, "games_played": 14, "fantasy_points": 268.9, "rush_yds": 1150, "rush_td": 10, "rec": 55, "rec_yds": 480, "rec_td": 2},
+  "rb_barkley":   {"season": 2025, "games_played": 17, "fantasy_points": 312.5, "rush_yds": 2005, "rush_td": 13, "rec": 33, "rec_yds": 278, "rec_td": 1},
+  "rb_jgibbs":    {"season": 2025, "games_played": 17, "fantasy_points": 289.3, "rush_yds": 1420, "rush_td": 16, "rec": 52, "rec_yds": 410, "rec_td": 3},
+  "rb_bijan":     {"season": 2025, "games_played": 17, "fantasy_points": 296.7, "rush_yds": 1470, "rush_td": 11, "rec": 61, "rec_yds": 500, "rec_td": 3},
+  "rb_jtaylor":   {"season": 2025, "games_played": 15, "fantasy_points": 244.8, "rush_yds": 1350, "rush_td": 12, "rec": 28, "rec_yds": 190, "rec_td": 1},
+  "rb_dhenry":    {"season": 2025, "games_played": 17, "fantasy_points": 258.2, "rush_yds": 1800, "rush_td": 16, "rec": 12, "rec_yds": 85,  "rec_td": 0},
+  "rb_jconner":   {"season": 2025, "games_played": 15, "fantasy_points": 198.4, "rush_yds": 980,  "rush_td": 8,  "rec": 27, "rec_yds": 210, "rec_td": 1},
+
+  "wr_jchase":    {"season": 2025, "games_played": 17, "fantasy_points": 298.6, "rec": 118, "rec_yds": 1610, "rec_td": 12},
+  "wr_clamb":     {"season": 2025, "games_played": 15, "fantasy_points": 251.3, "rec": 96,  "rec_yds": 1290, "rec_td": 8},
+  "wr_jjefferson":{"season": 2025, "games_played": 16, "fantasy_points": 269.8, "rec": 101, "rec_yds": 1420, "rec_td": 9},
+  "wr_ahill":     {"season": 2025, "games_played": 13, "fantasy_points": 189.4, "rec": 74,  "rec_yds": 980,  "rec_td": 6},
+  "wr_ademariol": {"season": 2025, "games_played": 17, "fantasy_points": 258.9, "rec": 106, "rec_yds": 1310, "rec_td": 8},
+  "wr_dlondon":   {"season": 2025, "games_played": 16, "fantasy_points": 221.5, "rec": 89,  "rec_yds": 1180, "rec_td": 7},
+  "wr_gpickens":  {"season": 2025, "games_played": 16, "fantasy_points": 204.7, "rec": 72,  "rec_yds": 1080, "rec_td": 6},
+
+  "te_kelce":     {"season": 2025, "games_played": 15, "fantasy_points": 178.2, "rec": 78, "rec_yds": 820, "rec_td": 5},
+  "te_bbowers":   {"season": 2025, "games_played": 17, "fantasy_points": 224.6, "rec": 105,"rec_yds": 1190,"rec_td": 7},
+  "te_slaporta":  {"season": 2025, "games_played": 16, "fantasy_points": 187.9, "rec": 86, "rec_yds": 940, "rec_td": 5},
+
+  "k_tbass":      {"season": 2025, "games_played": 17, "fantasy_points": 138.0, "fg_made": 29, "fg_att": 33, "xp_made": 41},
+  "k_jmcpherson": {"season": 2025, "games_played": 17, "fantasy_points": 142.0, "fg_made": 31, "fg_att": 34, "xp_made": 38},
+
+  "dst_sf":       {"season": 2025, "games_played": 17, "fantasy_points": 148.0, "sacks": 42, "int": 14, "fumble_rec": 9, "def_td": 3},
+  "dst_bal":      {"season": 2025, "games_played": 17, "fantasy_points": 156.0, "sacks": 48, "int": 17, "fumble_rec": 11, "def_td": 4}
+}
