@@ -144,7 +144,9 @@ export default function App() {
     try { providers = await fetchProviders(item.mediaType, item.tmdbId, settings.apiKey, settings.region); }
     catch { /* availability is a nice-to-have; don't block saving */ }
     await saveMovies(current => withSeenIt(current, item, { me, meIdx, rating, text, spoiler, providers, id: uid() }));
-    showToast(`Saved "${item.title}" to Watched`, { label: 'View', onClick: () => { setTab('watched'); setToast(null); } });
+    // No "View" button here: the toast sits over the swipe buttons, and a quick
+    // "Want it" on the next card would land on it instead.
+    showToast(`Saved "${item.title}" to Watched`);
   }
 
   async function toggleHype(id) {

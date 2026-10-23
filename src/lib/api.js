@@ -4,7 +4,7 @@ export const backdropUrl = (p) => (p ? `https://image.tmdb.org/t/p/w780${p}` : n
 async function tmdb(path, apiKey) {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`https://api.themoviedb.org/3${path}${sep}api_key=${apiKey}`);
-  if (!res.ok) throw new Error("TMDB request failed (" + res.status + ")");
+  if (!res.ok) throw Object.assign(new Error("TMDB request failed (" + res.status + ")"), { status: res.status });
   return res.json();
 }
 
@@ -48,6 +48,8 @@ export function normalizeResult(mediaType, raw, genreMap) {
     genreIds: raw.genre_ids || [],
     originalLanguage: raw.original_language || "",
     voteAverage: raw.vote_average || 0,
+    voteCount: raw.vote_count || 0,
+    releaseDate: raw[FIELDS[mediaType].dateField] || "",
   };
 }
 
@@ -85,37 +87,17 @@ export async function fetchProviders(mediaType, id, apiKey, region) {
   } catch (e) { return { flatrate: [], rent: [], buy: [], free: [] }; }
 }
 
-function monthsAgoISO(n) {
-  const d = new Date();
-  d.setMonth(d.getMonth() - n);
-  return d.toISOString().slice(0, 10);
+/** One page of /discover with the given query params; also returns TMDB's page count. */
+export async function discoverPage(mediaType, apiKey, params) {
+  const query = new URLSearchParams({ include_adult: "false", include_video: "false", ...params }).toString();
+  const d = await tmdb(`${FIELDS[mediaType].discoverPath}?${query}`, apiKey);
+  return { results: d.results || [], totalPages: Math.min(d.total_pages || 0, 500) };
 }
 
-const langParam = (language) => (language === "en" ? "&with_original_language=en" : "");
-
-export async function fetchRecent(mediaType, apiKey, { page = 1, language = "any", months = 3 } = {}) {
-  const dateField = mediaType === "movie" ? "primary_release_date" : "first_air_date";
-  const today = new Date().toISOString().slice(0, 10);
-  const d = await tmdb(
-    `${FIELDS[mediaType].discoverPath}?sort_by=popularity.desc&vote_count.gte=5&${dateField}.gte=${monthsAgoISO(months)}&${dateField}.lte=${today}&page=${page}${langParam(language)}`,
-    apiKey
-  );
-  return d.results || [];
-}
-
-export async function fetchTopRated(mediaType, apiKey, { page = 1 } = {}) {
-  const d = await tmdb(`${FIELDS[mediaType].topRatedPath}?page=${page}`, apiKey);
-  return d.results || [];
-}
-
-export async function fetchPopular(mediaType, apiKey, { page = 1, language = "any" } = {}) {
-  const d = await tmdb(`${FIELDS[mediaType].discoverPath}?sort_by=popularity.desc&page=${page}${langParam(language)}`, apiKey);
-  return d.results || [];
-}
-
-export async function fetchTrending(mediaType, apiKey, { window = "day", page = 1 } = {}) {
+/** One page of TMDB's live day or week trending list. */
+export async function trendingPage(mediaType, apiKey, window, page = 1) {
   const d = await tmdb(`${FIELDS[mediaType].trendingPath(window)}?page=${page}`, apiKey);
-  return d.results || [];
+  return { results: d.results || [], totalPages: Math.min(d.total_pages || 0, 500) };
 }
 
 function pickTrailer(videos) {

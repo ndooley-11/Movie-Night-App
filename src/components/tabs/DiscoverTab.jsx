@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Heart, X, Film, Info, SlidersHorizontal, ChevronUp, RotateCcw, Eye } from "lucide-react";
 import { mediaTypesForFilter, fetchDetails, normalizeResult } from "../../lib/api.js";
-import { createMixer, refillPools, drawCards, isDrained } from "../../lib/discoverFeed.js";
+import { createMixer, refillPools, drawCards, isDrained, feedUnavailable } from "../../lib/discoverFeed.js";
 import { swipeKey } from "../../hooks.js";
 import { Switch } from "../shared.jsx";
 import MediaDetails, { useDetails, useOmdb, Score, formatRuntime } from "../MediaDetails.jsx";
@@ -68,6 +68,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
   const [genreFilter, setGenreFilter] = useState(null);
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [theirQueue, setTheirQueue] = useState([]);
   const [theirLoading, setTheirLoading] = useState(false);
   const [dragX, setDragX] = useState(0);
@@ -144,9 +145,14 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
       for (let round = 0; round < 12 && drawn.length < want && !isDrained(mixer, enabledTypes); round++) {
         await refillPools(mixer, opts);
         if (gen !== genRef.current) return;
-        drawn.push(...drawCards(mixer, want - drawn.length, isExcluded, enabledTypes));
+        const got = drawCards(mixer, want - drawn.length, isExcluded, enabledTypes);
+        drawn.push(...got);
+        // TMDB is failing and backing off: stop here and let the retry below
+        // try again later rather than spinning through empty rounds.
+        if (!got.length && feedUnavailable(mixer, enabledTypes)) break;
       }
       setQueue((q) => (reset ? drawn : [...q, ...drawn]));
+      setOffline(!drawn.length && !queueRef.current.length && !!feedUnavailable(mixer, enabledTypes));
       // Came back short but there's more out there (slow network, narrow
       // filters): try again shortly instead of showing an empty deck.
       if (drawn.length > 0) retriesRef.current = 0;
@@ -165,6 +171,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
   useEffect(() => {
     setQueue([]);
     setFlipped(false);
+    setOffline(false);
     if (mode === "discover") loadMore(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genreFilter, language, settings.apiKey, contentType, showPassed, mode]);
@@ -399,7 +406,13 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
       <div className="deck">
         <div className="deck-inner">
           {!settings.apiKey && <div className="empty-state deck-empty">Add a TMDB key in Settings to start discovering.</div>}
-          {settings.apiKey && !current && !activeLoading && (
+          {settings.apiKey && !current && !activeLoading && mode === "discover" && offline && (
+            <div className="empty-state deck-empty" role="status">
+              Couldn't reach TMDB just now.
+              <button className="link-btn" onClick={() => { setOffline(false); loadMore(true); }}>Try again</button>
+            </div>
+          )}
+          {settings.apiKey && !current && !activeLoading && !(mode === "discover" && offline) && (
             <div className="empty-state deck-empty">
               {mode === "discover"
                 ? (activeFilters.length ? "Nothing left with these filters. Try loosening them." : "You're all caught up. Check back later for more.")
@@ -419,6 +432,9 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
             <div
               key={`${current.mediaType}:${current.tmdbId}`}
               ref={cardRef}
+              data-key={`${current.mediaType}:${current.tmdbId}`}
+              data-bucket={current.bucket}
+              data-slot={current.slot}
               className={"swipe-card" + (exiting ? " exit-" + exiting : "") + (flipped ? " flipped" : "")}
               style={cardStyle}
               onPointerDown={onPointerDown}

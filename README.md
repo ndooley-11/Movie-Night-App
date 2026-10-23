@@ -19,6 +19,16 @@ collapsed accessible sheet and a brief, reduced-motion-aware winner reveal.
 Choose for tonight saves a shared choice without changing watched history.
 After watching, mark the movie watched together or start episode tracking.
 
+Discover now uses a shuffled 20-card quota bag: 5 genuinely trending titles,
+6 established favourites, 4 under-the-radar picks, 3 obscure wild cards, and
+2 recent releases. Quotas persist across queue refills. Normally no more than
+7 cards per bag are from the last three calendar years. Wild cards explore
+random date windows and pages rather than reusing a popularity-only list.
+Movies and TV have separate vote thresholds; language, genre, passed-title
+and saved-title filters remain in effect. Narrow or exhausted pools may use
+older fallback categories, recorded in the mixer's bag statistics. An outage
+backs off and retries the same page; it is not treated as exhausted stock.
+
 Watched includes optional personal reviews (up to 5,000 characters), spoiler
 hiding, and separate Watching / Finished views with compact cards. Start a show from Watching's list
 or from a Pick result. Progress means the **latest completed episode**. Each

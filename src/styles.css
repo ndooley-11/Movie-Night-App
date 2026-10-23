@@ -740,8 +740,10 @@ input, textarea { caret-color: var(--accent); }
   gap: 14px;
   box-shadow: var(--shadow-float);
   animation: toast-in 0.28s var(--ease-out);
+  /* Taps go through to the app underneath; only an action button catches them. */
+  pointer-events: none;
 }
-.toast-action { background: none; border: none; color: var(--bg); font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; cursor: pointer; }
+.toast-action { pointer-events: auto; background: none; border: none; color: var(--bg); font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; cursor: pointer; }
 
 /* ---- "You both picked this" ---- */
 .match-layer {
