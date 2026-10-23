@@ -1,41 +1,99 @@
-import { Heart, Award } from "lucide-react";
+import { Star } from "lucide-react";
+import { PosterThumb } from "../shared.jsx";
+import { seenStatus } from "../../lib/seen.js";
 
-export default function StatsTab({ movies, names }) {
+const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+
+export default function StatsTab({ movies, names, me, partner }) {
   const watched = movies.filter((m) => m.watched);
+  const waiting = movies.length - watched.length;
+  const statuses = watched.map((m) => seenStatus(m, me, partner, names));
+  const together = statuses.filter((s) => s === "both").length;
+  const onlyMe = statuses.filter((s) => s === "me").length;
+  const onlyPartner = statuses.filter((s) => s === "partner").length;
   const allRatings = watched.flatMap((m) => Object.values(m.ratings || {})).filter(Boolean);
-  const avg = allRatings.length ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1) : "—";
-  const counts = {};
-  movies.forEach((m) => { counts[m.addedBy] = (counts[m.addedBy] || 0) + 1; });
+  const shows = movies.filter((m) => m.mediaType === "tv").length;
+
   const genreCounts = {};
   movies.forEach((m) => (m.genreNames || []).forEach((g) => { genreCounts[g] = (genreCounts[g] || 0) + 1; }));
-  const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0];
-  const showCount = movies.filter((m) => m.mediaType === "tv").length;
-  const movieCount = movies.length - showCount;
-  const mostHyped = [...movies].filter((m) => !m.watched).sort((a, b) => Object.values(b.hype || {}).filter(Boolean).length - Object.values(a.hype || {}).filter(Boolean).length)[0];
-  const topRated = [...watched].sort((a, b) => {
-    const ra = Object.values(a.ratings || {}); const rb = Object.values(b.ratings || {});
-    const aa = ra.length ? ra.reduce((x, y) => x + y, 0) / ra.length : 0;
-    const bb = rb.length ? rb.reduce((x, y) => x + y, 0) / rb.length : 0;
-    return bb - aa;
-  })[0];
+  const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
+
+  const added = { [names[0]]: 0, [names[1]]: 0, matches: 0 };
+  movies.forEach((m) => {
+    if ((m.addedBy || "").includes(" + ")) added.matches++;
+    else if (m.addedBy in added) added[m.addedBy]++;
+  });
+
+  const rated = watched
+    .map((m) => ({ m, score: avg(Object.values(m.ratings || {}).filter(Boolean)) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const topRated = rated[0];
+  const mostHyped = movies
+    .filter((m) => !m.watched)
+    .map((m) => ({ m, fans: Object.entries(m.hype || {}).filter(([, v]) => v).map(([n]) => n) }))
+    .filter((x) => x.fans.length > 0)
+    .sort((a, b) => b.fans.length - a.fans.length)[0];
+
+  if (movies.length === 0) {
+    return (
+      <div>
+        <h2 className="section-title">Stats</h2>
+        <div className="empty-state">Your numbers show up here once you start adding and watching things together.</div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <h2 className="section-title">The numbers</h2>
-      <div className="stat-grid">
-        <div className="stat-card"><div className="stat-num">{movies.length}</div><div className="stat-label">Suggested</div></div>
-        <div className="stat-card"><div className="stat-num">{watched.length}</div><div className="stat-label">Watched</div></div>
-        <div className="stat-card"><div className="stat-num">{avg}</div><div className="stat-label">Avg rating</div></div>
-        <div className="stat-card"><div className="stat-num">{topGenre ? topGenre[0] : "—"}</div><div className="stat-label">Top genre</div></div>
-      </div>
-      <div className="meta-row" style={{ marginTop: 10 }}>{movieCount} movie{movieCount !== 1 ? "s" : ""} · {showCount} show{showCount !== 1 ? "s" : ""}</div>
-      {names.map((n) => (<div key={n} className="meta-row" style={{ marginTop: 6 }}>{n} has suggested {counts[n] || 0} title{(counts[n] || 0) !== 1 ? "s" : ""}</div>))}
-      {mostHyped && Object.values(mostHyped.hype || {}).some(Boolean) && (
-        <div className="highlight-box"><Heart size={14} color="var(--like)" /> Most hyped pick still unwatched: <b>{mostHyped.title}</b></div>
+      <h2 className="section-title">Your list</h2>
+      <dl className="stat-list">
+        <Row label="Waiting to watch" value={waiting} />
+        <Row label="Watched together" value={together} />
+        {onlyMe > 0 && <Row label="Only you've seen" value={onlyMe} />}
+        {onlyPartner > 0 && <Row label={`Only ${partner} has seen`} value={onlyPartner} />}
+        <Row label="Movies · Shows" value={`${movies.length - shows} · ${shows}`} />
+        {allRatings.length > 0 && <Row label="Average rating" value={<><Star size={14} fill="var(--gold)" color="var(--gold)" aria-hidden="true" /> {avg(allRatings).toFixed(1)}</>} />}
+        {topGenres.length > 0 && <Row label="Favorite genres" value={topGenres.join(", ")} />}
+      </dl>
+
+      <h2 className="section-title">Who's bringing the picks</h2>
+      <dl className="stat-list">
+        <Row label={`${names[0]} suggested`} value={added[names[0]]} />
+        <Row label={`${names[1]} suggested`} value={added[names[1]]} />
+        <Row label="Matched in Discover" value={added.matches} />
+      </dl>
+
+      {(topRated || mostHyped) && <h2 className="section-title">Highlights</h2>}
+      {topRated && (
+        <div className="highlight">
+          <PosterThumb poster={topRated.m.poster} size="sm" />
+          <div>
+            <p className="highlight-label">Highest rated</p>
+            <p className="highlight-title">{topRated.m.title}</p>
+            <p className="meta-row"><Star size={12} fill="var(--gold)" color="var(--gold)" aria-hidden="true" /> {topRated.score.toFixed(1)} average</p>
+          </div>
+        </div>
       )}
-      {topRated && allRatings.length > 0 && (
-        <div className="highlight-box"><Award size={14} color="var(--gold)" /> Highest rated so far: <b>{topRated.title}</b></div>
+      {mostHyped && (
+        <div className="highlight">
+          <PosterThumb poster={mostHyped.m.poster} size="sm" />
+          <div>
+            <p className="highlight-label">Most anticipated</p>
+            <p className="highlight-title">{mostHyped.m.title}</p>
+            <p className="meta-row">{mostHyped.fans.length > 1 ? "You're both excited" : `${mostHyped.fans[0] === me ? "You're" : `${mostHyped.fans[0]} is`} excited`}</p>
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="stat-row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }

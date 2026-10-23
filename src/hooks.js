@@ -6,10 +6,10 @@ export const DEFAULT_SETTINGS = {
   names: ["Player 1", "Player 2"],
   apiKey: "",
   traktClientId: "",
+  omdbKey: "",
   region: "US",
   services: { "Player 1": [], "Player 2": [] },
   contentType: "both", // 'movies' | 'shows' | 'both'
-  language: "any", // 'any' | 'en' | 'non-en'
 };
 
 // Movie swipes predate media types and were keyed by bare tmdbId; keeping

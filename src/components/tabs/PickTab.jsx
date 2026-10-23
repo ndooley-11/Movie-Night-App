@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Shuffle, ThumbsDown, Film } from "lucide-react";
+import { Shuffle, ThumbsDown, Film, Info } from "lucide-react";
 import { mediaTypesForFilter } from "../../lib/api.js";
-import { MediaTypeTag } from "../shared.jsx";
+import { Switch } from "../shared.jsx";
 
-export default function PickTab({ movies, me, partner, allGenres, contentType, markWatched }) {
+const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+export default function PickTab({ movies, me, partner, allGenres, contentType, onWatchNow, openDetails }) {
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [unwatchedOnly, setUnwatchedOnly] = useState(true);
   const [spinning, setSpinning] = useState(false);
@@ -42,11 +44,12 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, m
     setResult(null);
     setSpinning(true);
     let count = 0;
+    const rolls = prefersReducedMotion() ? 0 : 14;
     clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
       setDisplay(pool[Math.floor(Math.random() * pool.length)]);
       count++;
-      if (count > 14) {
+      if (count > rolls) {
         clearInterval(intervalRef.current);
         const chosen = pool[Math.floor(Math.random() * pool.length)];
         setDisplay(chosen);
@@ -67,32 +70,36 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, m
 
   return (
     <div>
-      <h2 className="section-title">Filter by mood</h2>
-      <div className="chip-row">
-        {allGenres.length === 0 && <p className="hint">Add some titles with genres first.</p>}
-        {allGenres.map((g) => (<button key={g} className={"chip" + (selectedGenres.includes(g) ? " active" : "")} onClick={() => toggleGenre(g)}>{g}</button>))}
-      </div>
+      <h2 className="section-title">What are you in the mood for?</h2>
+      {allGenres.length === 0
+        ? <p className="hint">Add a few titles to your list first, then come back to pick one.</p>
+        : (
+          <div className="chip-row" role="group" aria-label="Genres">
+            {allGenres.map((g) => (<button key={g} className={"chip" + (selectedGenres.includes(g) ? " active" : "")} aria-pressed={selectedGenres.includes(g)} onClick={() => toggleGenre(g)}>{g}</button>))}
+          </div>
+        )}
       <div className="toggle-row">
-        <label className="checkbox-row"><input type="checkbox" checked={unwatchedOnly} onChange={(e) => setUnwatchedOnly(e.target.checked)} /> Unwatched only</label>
+        <Switch checked={unwatchedOnly} onChange={setUnwatchedOnly} label="Skip anything you've already watched" />
       </div>
-      <p className="hint">{pool.length} title{pool.length !== 1 ? "s" : ""} in the running</p>
 
-      <button className="btn btn-primary spin-btn" onClick={() => { newSession(); spin(); }} disabled={pool.length === 0 || spinning}>
-        <Shuffle size={16} /> {spinning ? "Rolling…" : "Pick for us"}
+      <button className="btn btn-primary btn-lg spin-btn" onClick={() => { newSession(); spin(); }} disabled={pool.length === 0 || spinning}>
+        <Shuffle size={18} aria-hidden="true" /> {spinning ? "Rolling…" : "Pick for us"}
       </button>
+      <p className="hint pool-count" aria-live="polite">{pool.length} title{pool.length !== 1 ? "s" : ""} in the running</p>
 
       {display && (
-        <div ref={revealRef} className={"reveal-card" + (spinning ? " spinning" : "")}>
-          {display.poster ? <img src={display.poster} alt="" className="reveal-poster" /> : <div className="poster-fallback big"><Film size={28} /></div>}
-          <div className="reveal-title">{display.title} <MediaTypeTag mediaType={display.mediaType || "movie"} /></div>
-          <div className="tag-row" style={{ justifyContent: "center" }}>{(display.genreNames || []).slice(0, 3).map((g) => <span key={g} className="genre-tag">{g}</span>)}</div>
+        <div ref={revealRef} className={"reveal-card" + (spinning ? " spinning" : "")} aria-live="polite" aria-busy={spinning}>
+          {display.poster ? <img src={display.poster} alt="" className="reveal-poster" /> : <div className="reveal-poster poster-fallback"><Film size={28} aria-hidden="true" /></div>}
+          <div className="reveal-title">{display.title}</div>
+          <p className="meta-row">{[display.year, (display.mediaType || "movie") === "tv" ? "Show" : "Movie", ...(display.genreNames || []).slice(0, 2)].filter(Boolean).join(" · ")}</p>
           {!spinning && result && (
             <>
+              <button className="link-btn center" onClick={() => openDetails(result)}><Info size={14} aria-hidden="true" /> More info</button>
               <div className="veto-row">
-                <button className="btn btn-outline" disabled={vetoUsed[me]} onClick={() => veto(me)}><ThumbsDown size={14} /> {me} veto</button>
-                <button className="btn btn-outline" disabled={vetoUsed[partner]} onClick={() => veto(partner)}><ThumbsDown size={14} /> {partner} veto</button>
+                <button className="btn btn-outline" disabled={vetoUsed[me]} onClick={() => veto(me)}><ThumbsDown size={15} aria-hidden="true" /> {vetoUsed[me] ? "Veto used" : "Your veto"}</button>
+                <button className="btn btn-outline" disabled={vetoUsed[partner]} onClick={() => veto(partner)}><ThumbsDown size={15} aria-hidden="true" /> {vetoUsed[partner] ? "Veto used" : `${partner}'s veto`}</button>
               </div>
-              <button className="btn btn-primary" onClick={() => markWatched(result.id, true)}>Watch this now</button>
+              <button className="btn btn-primary" onClick={() => onWatchNow(result.id)}>We're watching this</button>
             </>
           )}
         </div>

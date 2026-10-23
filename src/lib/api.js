@@ -117,6 +117,52 @@ export async function fetchTrending(mediaType, apiKey, { window = "day", page = 
   return d.results || [];
 }
 
+function pickTrailer(videos) {
+  const yt = (videos?.results || []).filter((v) => v.site === "YouTube");
+  const best =
+    yt.find((v) => v.type === "Trailer" && v.official) ||
+    yt.find((v) => v.type === "Trailer") ||
+    yt.find((v) => v.type === "Teaser");
+  return best ? `https://www.youtube.com/watch?v=${best.key}` : null;
+}
+
+export async function fetchFullDetails(mediaType, id, apiKey, region) {
+  const d = await tmdb(`${FIELDS[mediaType].detailsPath(id)}?append_to_response=credits,videos,external_ids,watch/providers`, apiKey);
+  const title = titleOf(mediaType, d);
+  const year = yearOf(mediaType, d);
+  const crew = d.credits?.crew || [];
+  const people = mediaType === "movie"
+    ? crew.filter((c) => c.job === "Director").map((c) => c.name)
+    : (d.created_by || []).map((c) => c.name);
+  const runtime = mediaType === "movie" ? d.runtime : d.episode_run_time?.[0];
+  const providers = d["watch/providers"]?.results?.[region] || {};
+  return {
+    tmdbId: d.id,
+    mediaType,
+    title,
+    year,
+    poster: posterUrl(d.poster_path),
+    tagline: d.tagline || "",
+    overview: d.overview || "",
+    genres: (d.genres || []).map((g) => g.name),
+    runtime: runtime || null,
+    seasons: mediaType === "tv" ? d.number_of_seasons || null : null,
+    peopleLabel: mediaType === "movie" ? "Directed by" : "Created by",
+    people: Array.from(new Set(people)).slice(0, 3),
+    cast: (d.credits?.cast || []).slice(0, 6).map((c) => ({
+      name: c.name,
+      character: c.character || "",
+      photo: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+    })),
+    tmdbRating: d.vote_count > 0 ? Math.round(d.vote_average * 10) / 10 : null,
+    tmdbVotes: d.vote_count || 0,
+    imdbId: d.external_ids?.imdb_id || d.imdb_id || null,
+    trailerUrl: pickTrailer(d.videos) || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${year} trailer`)}`,
+    hasOfficialTrailer: !!pickTrailer(d.videos),
+    streaming: (providers.flatrate || []).map((p) => p.provider_name),
+  };
+}
+
 export async function fetchGenreList(mediaType, apiKey) {
   const d = await tmdb(FIELDS[mediaType].genrePath, apiKey);
   return d.genres || [];

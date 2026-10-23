@@ -47,16 +47,20 @@ export default function RoomGate({ onJoin, onCreate }) {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && join()}
-              autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="go"
             />
             <button className="btn btn-primary" onClick={join}>Join room <ArrowRight size={16} /></button>
           </div>
         ) : (
           <div className="gate-form">
             <label className="field-label" htmlFor="name-a">Your name</label>
-            <input id="name-a" className="input" placeholder="Your name" value={names[0]} onChange={(e) => setNames([e.target.value, names[1]])} autoFocus />
+            <input id="name-a" className="input" placeholder="Your name" value={names[0]} onChange={(e) => setNames([e.target.value, names[1]])} autoCapitalize="words" autoComplete="given-name" enterKeyHint="next" />
             <label className="field-label" htmlFor="name-b">Partner's name</label>
-            <input id="name-b" className="input" placeholder="Partner's name" value={names[1]} onChange={(e) => setNames([names[0], e.target.value])} onKeyDown={(e) => e.key === "Enter" && create()} />
+            <input id="name-b" className="input" placeholder="Partner's name" value={names[1]} onChange={(e) => setNames([names[0], e.target.value])} onKeyDown={(e) => e.key === "Enter" && create()} autoCapitalize="words" autoComplete="off" enterKeyHint="go" />
             <button className="btn btn-primary" onClick={create}><Users size={16} /> Create room</button>
             <p className="hint">You'll get a short code right after — share it with your partner so they can join.</p>
           </div>

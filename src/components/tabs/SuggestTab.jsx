@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Heart, PlayCircle, Trash2, Film } from "lucide-react";
-import { searchMedia, normalizeResult } from "../../lib/api.js";
-import { mediaTypesForFilter } from "../../lib/api.js";
+import { Search, Plus, Heart, CheckCircle2, Trash2, Check } from "lucide-react";
+import { searchMedia, normalizeResult, mediaTypesForFilter } from "../../lib/api.js";
 import { PosterThumb, MediaTypeTag, AvailabilityBadge } from "../shared.jsx";
 
-export default function SuggestTab({ settings, genreMap, movies, me, householdServices, haveIt, toggleHype, markWatched, removeMovie, addItem, showToast }) {
+export default function SuggestTab({ settings, genreMap, movies, me, haveIt, toggleHype, onMarkSeen, removeMovie, addItem, showToast, openDetails }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -13,18 +12,20 @@ export default function SuggestTab({ settings, genreMap, movies, me, householdSe
   const debounceRef = useRef(null);
 
   const enabledTypes = mediaTypesForFilter(settings.contentType);
+  const onList = (mediaType, id) => movies.some((m) => (m.mediaType || "movie") === mediaType && String(m.tmdbId) === String(id));
 
   useEffect(() => {
-    if (!settings.apiKey || query.trim().length < 2) { setResults([]); return; }
+    if (!settings.apiKey || query.trim().length < 2) { setResults([]); setSearching(false); return; }
     clearTimeout(debounceRef.current);
+    setSearching(true);
     debounceRef.current = setTimeout(async () => {
-      setSearching(true);
       try {
         const lists = await Promise.all(enabledTypes.map((mt) => searchMedia(query, settings.apiKey, mt).then((rs) => rs.slice(0, 5).map((r) => ({ ...r, mediaType: mt })))));
-        setResults(lists.flat());
+        setResults(lists.flat().sort((a, b) => (b.popularity || 0) - (a.popularity || 0)));
       } catch (e) { setResults([]); }
       setSearching(false);
-    }, 400);
+    }, 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, settings.apiKey, settings.contentType]);
 
   async function addFromTmdb(r) {
@@ -40,87 +41,108 @@ export default function SuggestTab({ settings, genreMap, movies, me, householdSe
       tmdbId: null, mediaType: manual.mediaType, title: manual.title.trim(), year: manual.year.trim(),
       poster: null, genreNames: manual.genre ? [manual.genre.trim()] : [], originalLanguage: "",
     });
+    showToast(`Added "${manual.title.trim()}"`);
     setManual({ title: "", year: "", genre: "", mediaType: "movie" });
     setManualMode(false);
-    showToast(`Added "${manual.title.trim()}"`);
   }
 
   const list = movies.filter((m) => !m.watched);
+  const showNoResults = !searching && query.trim().length >= 2 && results.length === 0 && settings.apiKey;
 
   return (
     <div>
-      <div className="search-row">
-        <Search size={16} className="search-icon" />
+      <label className="search-row">
+        <span className="visually-hidden">Search for a movie or show</span>
+        <Search size={17} className="search-icon" aria-hidden="true" />
         <input
           className="input search-input"
-          placeholder={settings.apiKey ? "Search a title…" : "Add a TMDB key in Settings to search"}
+          type="search"
+          placeholder={settings.apiKey ? "Search movies and shows" : "Add a TMDB key in Settings to search"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={!settings.apiKey}
+          autoComplete="off"
         />
-      </div>
+      </label>
       {searching && <p className="hint">Searching…</p>}
+      {showNoResults && <p className="hint">No matches. Check the spelling, or add it by hand below.</p>}
       {results.length > 0 && (
-        <div className="results">
-          {results.map((r) => (
-            <button key={`${r.mediaType}:${r.id}`} className="result-row" onClick={() => addFromTmdb(r)}>
-              <PosterThumb poster={r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : null} size="sm" />
-              <div className="result-text">
-                <div className="result-title">{r.title || r.name}</div>
-                <div className="result-year">{(r.release_date || r.first_air_date || "").slice(0, 4)} <MediaTypeTag mediaType={r.mediaType} /></div>
-              </div>
-              <Plus size={16} />
-            </button>
-          ))}
-        </div>
+        <ul className="results">
+          {results.map((r) => {
+            const added = onList(r.mediaType, r.id);
+            return (
+              <li key={`${r.mediaType}:${r.id}`}>
+                <button className="result-row" onClick={() => addFromTmdb(r)} disabled={added}>
+                  <PosterThumb poster={r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : null} size="sm" />
+                  <span className="result-text">
+                    <span className="result-title">{r.title || r.name}</span>
+                    <span className="result-year">{(r.release_date || r.first_air_date || "").slice(0, 4)} <MediaTypeTag mediaType={r.mediaType} /></span>
+                  </span>
+                  {added
+                    ? <span className="result-added"><Check size={14} aria-hidden="true" /> On your list</span>
+                    : <span className="result-add" aria-label={`Add ${r.title || r.name}`}><Plus size={18} aria-hidden="true" /></span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
-      <button className="link-btn" onClick={() => setManualMode(!manualMode)}>
-        {manualMode ? "Cancel manual add" : "Can't find it? Add manually"}
+      <button className="link-btn" onClick={() => setManualMode(!manualMode)} aria-expanded={manualMode}>
+        {manualMode ? "Cancel" : "Can't find it? Add it by hand"}
       </button>
       {manualMode && (
         <div className="manual-form">
-          <div className="segmented small">
-            <button className={manual.mediaType === "movie" ? "active" : ""} onClick={() => setManual({ ...manual, mediaType: "movie" })}>Movie</button>
-            <button className={manual.mediaType === "tv" ? "active" : ""} onClick={() => setManual({ ...manual, mediaType: "tv" })}>Show</button>
+          <div className="segmented small" role="group" aria-label="Type">
+            <button className={manual.mediaType === "movie" ? "active" : ""} aria-pressed={manual.mediaType === "movie"} onClick={() => setManual({ ...manual, mediaType: "movie" })}>Movie</button>
+            <button className={manual.mediaType === "tv" ? "active" : ""} aria-pressed={manual.mediaType === "tv"} onClick={() => setManual({ ...manual, mediaType: "tv" })}>Show</button>
           </div>
-          <input className="input" placeholder="Title" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} />
+          <input className="input" aria-label="Title" placeholder="Title" value={manual.title} onChange={(e) => setManual({ ...manual, title: e.target.value })} />
           <div className="field-row">
-            <input className="input" placeholder="Year" value={manual.year} onChange={(e) => setManual({ ...manual, year: e.target.value })} />
-            <input className="input" placeholder="Genre" value={manual.genre} onChange={(e) => setManual({ ...manual, genre: e.target.value })} />
+            <input className="input" aria-label="Year" inputMode="numeric" placeholder="Year" value={manual.year} onChange={(e) => setManual({ ...manual, year: e.target.value })} />
+            <input className="input" aria-label="Genre" placeholder="Genre" value={manual.genre} onChange={(e) => setManual({ ...manual, genre: e.target.value })} />
           </div>
-          <button className="btn btn-primary" onClick={addManual}>Add to list</button>
+          <button className="btn btn-primary" onClick={addManual} disabled={!manual.title.trim()}>Add to list</button>
         </div>
       )}
 
-      <h2 className="section-title">On the list ({list.length})</h2>
-      {list.length === 0 && <div className="empty-state">No suggestions yet. Search above, or try Discover to swipe through new ideas.</div>}
-      <div className="list">
+      <h2 className="section-title">On the list <span className="section-count">{list.length}</span></h2>
+      {list.length === 0 && <div className="empty-state">Nothing here yet. Search above, or swipe in Discover. When you both like the same title it lands here.</div>}
+      <ul className="list">
         {list.map((m) => (
-          <MediaRow key={m.id} m={m} me={me} haveIt={haveIt(m)} toggleHype={toggleHype} markWatched={markWatched} removeMovie={removeMovie} />
+          <li key={m.id}>
+            <MediaRow m={m} me={me} haveIt={haveIt(m)} toggleHype={toggleHype} onMarkSeen={onMarkSeen} removeMovie={removeMovie} openDetails={openDetails} />
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
 
-function MediaRow({ m, me, haveIt, toggleHype, markWatched, removeMovie }) {
-  const hypeCount = Object.values(m.hype || {}).filter(Boolean).length;
+function MediaRow({ m, me, haveIt, toggleHype, onMarkSeen, removeMovie, openDetails }) {
+  const hypers = Object.entries(m.hype || {}).filter(([, v]) => v).map(([n]) => n);
+  const iHyped = !!m.hype?.[me];
   return (
     <div className="media-row">
-      <PosterThumb poster={m.poster} />
-      <div className="media-row-body">
-        <div className="media-row-title">{m.title} {m.year && <span className="muted">· {m.year}</span>} <MediaTypeTag mediaType={m.mediaType || "movie"} /></div>
-        <div className="tag-row">{(m.genreNames || []).slice(0, 3).map((g) => <span key={g} className="genre-tag">{g}</span>)}</div>
-        <div className="meta-row">Added by {m.addedBy}</div>
-        <div className="provider-row"><AvailabilityBadge providers={m.providers} haveIt={haveIt} /></div>
-      </div>
+      <button className="media-row-main" onClick={() => openDetails(m)} aria-label={`${m.title}, show details`}>
+        <PosterThumb poster={m.poster} />
+        <span className="media-row-body">
+          <span className="media-row-title">{m.title}</span>
+          <span className="meta-row">{[m.year, (m.mediaType || "movie") === "tv" ? "Show" : "Movie", (m.genreNames || [])[0]].filter(Boolean).join(" · ")}</span>
+          <span className="meta-row">Added by {m.addedBy}</span>
+          <AvailabilityBadge providers={m.providers} haveIt={haveIt} />
+        </span>
+      </button>
       <div className="media-row-actions">
-        <button className="icon-btn" onClick={() => toggleHype(m.id)} aria-label="Hype">
-          <Heart size={16} fill={m.hype?.[me] ? "var(--like)" : "none"} color={m.hype?.[me] ? "var(--like)" : "var(--text-faint)"} />
-          {hypeCount > 0 && <span className="count-badge">{hypeCount}</span>}
+        <button className={"icon-btn" + (iHyped ? " on" : "")} onClick={() => toggleHype(m.id)} aria-pressed={iHyped} aria-label={iHyped ? "Excited to watch (tap to undo)" : "Mark as excited to watch"} title={hypers.length ? `Excited: ${hypers.join(", ")}` : "Excited to watch"}>
+          <Heart size={18} aria-hidden="true" fill={iHyped ? "currentColor" : "none"} />
+          {hypers.length > 0 && <span className="count-badge">{hypers.length}</span>}
         </button>
-        <button className="icon-btn" onClick={() => markWatched(m.id, true)} aria-label="Mark watched"><PlayCircle size={16} /></button>
-        <button className="icon-btn" onClick={() => removeMovie(m.id)} aria-label="Remove"><Trash2 size={16} /></button>
+        <button className="icon-btn" onClick={() => onMarkSeen(m.id)} aria-label={`Mark ${m.title} as watched`} title="Mark as watched">
+          <CheckCircle2 size={18} aria-hidden="true" />
+        </button>
+        <button className="icon-btn" onClick={() => removeMovie(m.id)} aria-label={`Remove ${m.title}`} title="Remove">
+          <Trash2 size={18} aria-hidden="true" />
+        </button>
       </div>
     </div>
   );

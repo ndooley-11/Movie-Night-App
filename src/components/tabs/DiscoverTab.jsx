@@ -1,19 +1,67 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Heart, X, Film } from "lucide-react";
-import { mediaTypesForFilter, fetchDetails, posterUrl, backdropUrl, normalizeResult } from "../../lib/api.js";
+import { Heart, X, Film, Info, SlidersHorizontal, ChevronUp, RotateCcw } from "lucide-react";
+import { mediaTypesForFilter, fetchDetails, normalizeResult } from "../../lib/api.js";
 import { fetchDiscoverBatch, emptyPageState } from "../../lib/discoverFeed.js";
 import { swipeKey } from "../../hooks.js";
+import { Switch } from "../shared.jsx";
+import MediaDetails, { useDetails, useOmdb, Score, formatRuntime } from "../MediaDetails.jsx";
 
-const LANGUAGE_CHIPS = [["any", "Any language"], ["en", "English"], ["non-en", "Non-English"]];
+const LANGUAGES = [["any", "Any"], ["en", "English"], ["non-en", "Non-English"]];
+const CONTENT_TYPES = [["movies", "Movies"], ["shows", "Shows"], ["both", "Both"]];
 
 function parseSwipeKey(key) {
   return key.startsWith("tv:") ? { mediaType: "tv", tmdbId: Number(key.slice(3)) } : { mediaType: "movie", tmdbId: Number(key) };
 }
 
-export default function DiscoverTab({ settings, genreMap, movies, me, partner, swipes, setSwipe, showToast, showPassed, setShowPassed }) {
+const largePoster = (url) => (url ? url.replace("/w342/", "/w780/") : null);
+
+// Both the top card and the one behind it render this, so the next card's
+// details and scores are already loaded by the time it slides up.
+function CardFront({ item, settings, flipped = false, partnerPick, onInfo, dragX = 0 }) {
+  const { data } = useDetails(item, settings.apiKey, settings.region, true);
+  const omdb = useOmdb(data?.imdbId, settings.omdbKey, true);
+  const tmdbScore = data?.tmdbRating ?? (item.voteAverage > 0 ? Math.round(item.voteAverage * 10) / 10 : null);
+  const length = data?.mediaType === "tv"
+    ? (data.seasons ? `${data.seasons} season${data.seasons !== 1 ? "s" : ""}` : null)
+    : formatRuntime(data?.runtime);
+  const genres = (data?.genres?.length ? data.genres : item.genreNames || []).slice(0, 3);
+
+  return (
+    <div className="face front" aria-hidden={flipped}>
+      {item.poster
+        ? <img className="card-img" src={largePoster(item.poster)} alt="" draggable="false" />
+        : <div className="poster-fallback big"><Film size={32} aria-hidden="true" /></div>}
+      <div className="card-shade" aria-hidden="true" />
+      {dragX > 40 && <div className="swipe-stamp like">Like</div>}
+      {dragX < -40 && <div className="swipe-stamp pass">Pass</div>}
+      <div className="card-overlay">
+        <h3 className="card-title">{item.title}</h3>
+        {genres.length > 0 && <p className="card-genres">{genres.join(", ")}</p>}
+        <p className="card-meta">
+          {[item.year, item.mediaType === "tv" ? "Show" : "Movie", length].filter(Boolean).join(" · ")}
+          {partnerPick && <span className="their-pick"> · {partnerPick}'s pick</span>}
+        </p>
+        {(omdb?.imdb || omdb?.rottenTomatoes || tmdbScore) && (
+          <div className="card-scores">
+            {omdb?.imdb && <Score source="imdb" value={omdb.imdb} size="sm" />}
+            {omdb?.rottenTomatoes && <Score source="rt" value={omdb.rottenTomatoes} size="sm" />}
+            {tmdbScore != null && <Score source="tmdb" value={tmdbScore.toFixed(1)} size="sm" />}
+          </div>
+        )}
+      </div>
+      {onInfo && (
+        <button className="card-info-btn" onClick={onInfo} aria-label={`Details for ${item.title}`} tabIndex={flipped ? -1 : 0}>
+          <Info size={18} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function DiscoverTab({ settings, saveSettings, genreMap, movies, me, partner, swipes, setSwipe, showPassed, setShowPassed, language, setLanguage, householdServices }) {
   const [mode, setMode] = useState("discover");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [genreFilter, setGenreFilter] = useState(null);
-  const [language, setLanguage] = useState(settings.language || "any");
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(false);
   const [theirQueue, setTheirQueue] = useState([]);
@@ -21,12 +69,14 @@ export default function DiscoverTab({ settings, genreMap, movies, me, partner, s
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [exiting, setExiting] = useState(null);
-  const startX = useRef(0);
+  const [flipped, setFlipped] = useState(false);
+  const gesture = useRef(null);
   const pageStateRef = useRef(emptyPageState());
   const detailCacheRef = useRef(new Map());
   const fetchedRef = useRef(new Set());
 
-  const enabledTypes = mediaTypesForFilter(settings.contentType);
+  const contentType = settings.contentType || "both";
+  const enabledTypes = mediaTypesForFilter(contentType);
   const mySwipes = swipes[me] || {};
   const partnerSwipes = swipes[partner] || {};
 
@@ -40,8 +90,12 @@ export default function DiscoverTab({ settings, genreMap, movies, me, partner, s
     return keys;
   }, [movies, mySwipes, showPassed]);
 
+  const onList = (key) => {
+    const { mediaType, tmdbId } = parseSwipeKey(key);
+    return movies.some((m) => (m.mediaType || "movie") === mediaType && String(m.tmdbId) === String(tmdbId));
+  };
   const partnerPendingKeys = Object.entries(partnerSwipes)
-    .filter(([key, v]) => v === "like" && !mySwipes[key] && !movies.some((m) => `${m.mediaType || "movie"}:${m.tmdbId}` === `${parseSwipeKey(key).mediaType}:${parseSwipeKey(key).tmdbId}`))
+    .filter(([key, v]) => v === "like" && !mySwipes[key] && !onList(key))
     .map(([key]) => key);
 
   const loadMore = useCallback(async (reset) => {
@@ -64,13 +118,14 @@ export default function DiscoverTab({ settings, genreMap, movies, me, partner, s
       setQueue((q) => (reset ? filtered : [...q, ...filtered]));
     } catch (e) { /* network hiccup — the stack just won't refill this round */ }
     setLoading(false);
-  }, [settings.apiKey, settings.traktClientId, settings.contentType, language, genreFilter, loading, genreMap, excludeKeys, enabledTypes]);
+  }, [settings.apiKey, settings.traktClientId, contentType, language, genreFilter, loading, genreMap, excludeKeys, enabledTypes]);
 
   useEffect(() => {
     setQueue([]);
+    setFlipped(false);
     if (mode === "discover") loadMore(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [genreFilter, language, settings.apiKey, settings.contentType, mode]);
+  }, [genreFilter, language, settings.apiKey, contentType, showPassed, mode]);
 
   useEffect(() => {
     if (mode === "discover" && queue.length <= 3 && !loading && settings.apiKey) loadMore(false);
@@ -107,10 +162,11 @@ export default function DiscoverTab({ settings, genreMap, movies, me, partner, s
 
   const activeQueue = mode === "discover" ? queue : theirQueue;
   const activeLoading = mode === "discover" ? loading : theirLoading;
+  const current = activeQueue[0];
+  const next = activeQueue[1];
 
   function commitSwipe(liked) {
-    const current = activeQueue[0];
-    if (!current) return;
+    if (!current || exiting) return;
     setExiting(liked ? "right" : "left");
     setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
     setTimeout(() => {
@@ -118,112 +174,201 @@ export default function DiscoverTab({ settings, genreMap, movies, me, partner, s
       else setTheirQueue((q) => q.slice(1));
       setExiting(null);
       setDragX(0);
-    }, 220);
+      setFlipped(false);
+    }, 240);
   }
 
-  function onPointerDown(e) { startX.current = e.clientX; setDragging(true); }
-  function onPointerMove(e) { if (dragging) setDragX(e.clientX - startX.current); }
+  // One gesture handler for both swipe and tap: a press that barely moves is
+  // a tap (flip the card); a horizontal drag on the poster side is a swipe.
+  // While flipped, the back scrolls natively, so a scroll cancels the tap.
+  function onPointerDown(e) {
+    if (e.button > 0 || exiting) return;
+    if (e.target.closest("a, button")) return;
+    gesture.current = { x: e.clientX, y: e.clientY, moved: false };
+    if (!flipped) {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      setDragging(true);
+    }
+  }
+  function onPointerMove(e) {
+    const g = gesture.current;
+    if (!g) return;
+    const dx = e.clientX - g.x;
+    if (Math.abs(dx) > 6 || Math.abs(e.clientY - g.y) > 6) g.moved = true;
+    if (!flipped) setDragX(dx);
+  }
   function onPointerUp() {
-    if (!dragging) return;
+    const g = gesture.current;
+    gesture.current = null;
     setDragging(false);
+    if (!g) return;
+    if (!g.moved) { setDragX(0); setFlipped((f) => !f); return; }
+    if (flipped) return;
     if (dragX > 90) commitSwipe(true);
     else if (dragX < -90) commitSwipe(false);
     else setDragX(0);
   }
+  function onPointerCancel() {
+    gesture.current = null;
+    setDragging(false);
+    setDragX(0);
+  }
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target.closest?.("input, textarea, select, [role=dialog]")) return;
+      if (e.key === "ArrowRight") commitSwipe(true);
+      else if (e.key === "ArrowLeft") commitSwipe(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const genreOptions = useMemo(() => {
     const names = new Set();
     enabledTypes.forEach((mt) => Object.values(genreMap?.[mt] || {}).forEach((n) => names.add(n)));
     return Array.from(names).sort();
-  }, [genreMap, settings.contentType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genreMap, contentType]);
 
-  const current = activeQueue[0];
-  const next = activeQueue[1];
+  const activeFilters = [
+    contentType !== "both" && (contentType === "movies" ? "Movies only" : "Shows only"),
+    language !== "any" && (language === "en" ? "English" : "Non-English"),
+    genreFilter,
+    showPassed && "Including passed",
+  ].filter(Boolean);
+
+  function resetFilters() {
+    setGenreFilter(null);
+    setLanguage("any");
+    setShowPassed(false);
+    if (contentType !== "both") saveSettings({ ...settings, contentType: "both" });
+  }
+
+  const cardStyle = {
+    transform: `translateX(${dragX}px) rotate(${dragX / 22}deg)`,
+    transition: dragging ? "none" : undefined,
+    touchAction: flipped ? "pan-y" : "none",
+  };
 
   return (
-    <div>
-      <h2 className="section-title">Discover</h2>
-      <div className="segmented">
-        <button className={mode === "discover" ? "active" : ""} onClick={() => setMode("discover")}>New for you</button>
-        <button className={mode === "theirs" ? "active" : ""} onClick={() => setMode("theirs")}>
-          {partner} liked{partnerPendingKeys.length > 0 && <span className="count-pill">{partnerPendingKeys.length}</span>}
-        </button>
+    <div className="discover">
+      <div className="discover-bar">
+        <div className="segmented grow" role="group" aria-label="Discover mode">
+          <button className={mode === "discover" ? "active" : ""} aria-pressed={mode === "discover"} onClick={() => setMode("discover")}>New for you</button>
+          <button className={mode === "theirs" ? "active" : ""} aria-pressed={mode === "theirs"} onClick={() => setMode("theirs")}>
+            {partner} liked{partnerPendingKeys.length > 0 && <span className="count-pill">{partnerPendingKeys.length}</span>}
+          </button>
+        </div>
+        {mode === "discover" && (
+          <button
+            className={"filter-btn" + (filtersOpen ? " open" : "") + (activeFilters.length ? " has-active" : "")}
+            aria-expanded={filtersOpen}
+            aria-controls="discover-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            {filtersOpen ? <ChevronUp size={16} aria-hidden="true" /> : <SlidersHorizontal size={16} aria-hidden="true" />}
+            <span>Filters</span>
+            {activeFilters.length > 0 && <span className="count-pill">{activeFilters.length}</span>}
+          </button>
+        )}
       </div>
 
-      {mode === "discover" && (
-        <>
-          <div className="toggle-row">
-            <label className="switch-row">
-              <span>Show things I've already passed on</span>
-              <span className={"switch" + (showPassed ? " on" : "")} onClick={() => setShowPassed(!showPassed)}>
-                <span className="switch-knob" />
-              </span>
-            </label>
-          </div>
-          <div className="chip-row">
-            {LANGUAGE_CHIPS.map(([val, label]) => (
-              <button key={val} className={"chip" + (language === val ? " active" : "")} onClick={() => setLanguage(val)}>{label}</button>
-            ))}
-          </div>
-          <div className="chip-row">
-            <button className={"chip" + (genreFilter === null ? " active" : "")} onClick={() => setGenreFilter(null)}>All genres</button>
-            {genreOptions.slice(0, 12).map((name) => (
-              <button key={name} className={"chip" + (genreFilter === name ? " active" : "")} onClick={() => setGenreFilter(name)}>{name}</button>
-            ))}
-          </div>
-        </>
+      {mode === "discover" && !filtersOpen && activeFilters.length > 0 && (
+        <p className="filter-summary">{activeFilters.join(" · ")}</p>
       )}
 
-      {!settings.apiKey && <div className="empty-state" style={{ marginTop: 14 }}>Add a TMDB key in Settings to start discovering.</div>}
+      {mode === "discover" && filtersOpen && (
+        <div id="discover-filters" className="filter-panel">
+          <div className="filter-group">
+            <span className="filter-label">Show <span className="muted">· shared with {partner}</span></span>
+            <div className="segmented" role="group" aria-label="Content type">
+              {CONTENT_TYPES.map(([val, label]) => (
+                <button key={val} className={contentType === val ? "active" : ""} aria-pressed={contentType === val} onClick={() => saveSettings({ ...settings, contentType: val })}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">Original language</span>
+            <div className="segmented" role="group" aria-label="Original language">
+              {LANGUAGES.map(([val, label]) => (
+                <button key={val} className={language === val ? "active" : ""} aria-pressed={language === val} onClick={() => setLanguage(val)}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">Genre</span>
+            <div className="chip-scroll" role="group" aria-label="Genre">
+              <button className={"chip" + (genreFilter === null ? " active" : "")} aria-pressed={genreFilter === null} onClick={() => setGenreFilter(null)}>All</button>
+              {genreOptions.map((name) => (
+                <button key={name} className={"chip" + (genreFilter === name ? " active" : "")} aria-pressed={genreFilter === name} onClick={() => setGenreFilter(genreFilter === name ? null : name)}>{name}</button>
+              ))}
+            </div>
+          </div>
+          <Switch checked={showPassed} onChange={setShowPassed} label="Show titles I already passed on" />
+          <div className="filter-footer">
+            {activeFilters.length > 0 && <button className="link-btn" onClick={resetFilters}>Reset filters</button>}
+            <button className="btn btn-outline btn-sm" onClick={() => setFiltersOpen(false)}>Done</button>
+          </div>
+        </div>
+      )}
 
-      {settings.apiKey && (
-        <div className="swipe-stack">
-          {!current && !activeLoading && mode === "discover" && (
-            <div className="empty-state">You're all caught up — check back later, or try a different filter.</div>
+      <div className="deck">
+        <div className="deck-inner">
+          {!settings.apiKey && <div className="empty-state deck-empty">Add a TMDB key in Settings to start discovering.</div>}
+          {settings.apiKey && !current && !activeLoading && (
+            <div className="empty-state deck-empty">
+              {mode === "discover"
+                ? (activeFilters.length ? "Nothing left with these filters. Try loosening them." : "You're all caught up. Check back later for more.")
+                : `Nothing waiting on you. ${partner} hasn't liked anything you haven't seen.`}
+              {mode === "discover" && activeFilters.length > 0 && <button className="link-btn" onClick={resetFilters}>Reset filters</button>}
+            </div>
           )}
-          {!current && !activeLoading && mode === "theirs" && (
-            <div className="empty-state">Nothing waiting on you — {partner} hasn't liked anything you haven't already seen.</div>
-          )}
-          {!current && activeLoading && <p className="hint" style={{ textAlign: "center" }}>Loading…</p>}
+          {settings.apiKey && !current && activeLoading && <div className="card-skeleton" aria-label="Loading titles" />}
 
           {next && (
-            <div className="swipe-card behind">
-              {next.backdrop || next.poster ? <img src={next.backdrop || next.poster} alt="" /> : <div className="poster-fallback big" />}
+            <div key={`behind-${next.mediaType}:${next.tmdbId}`} className="swipe-card behind" aria-hidden="true">
+              <CardFront item={next} settings={settings} />
             </div>
           )}
 
           {current && (
             <div
-              className={"swipe-card" + (exiting ? " exit-" + exiting : "")}
-              style={{ transform: `translateX(${dragX}px) rotate(${dragX / 20}deg)`, opacity: dragging ? 1 - Math.min(Math.abs(dragX) / 400, 0.3) : 1 }}
+              key={`${current.mediaType}:${current.tmdbId}`}
+              className={"swipe-card" + (exiting ? " exit-" + exiting : "") + (flipped ? " flipped" : "")}
+              style={cardStyle}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
-              onPointerLeave={onPointerUp}
+              onPointerCancel={onPointerCancel}
             >
-              {current.poster ? <img src={current.poster} alt="" className="swipe-poster" /> : <div className="poster-fallback big"><Film size={28} /></div>}
-              <div className="swipe-info">
-                <div className="swipe-title">{current.title} {current.year && <span className="muted">· {current.year}</span>}</div>
-                <div className="tag-row" style={{ justifyContent: "center" }}>
-                  {(current.genreNames || []).slice(0, 3).map((g) => <span key={g} className="genre-tag">{g}</span>)}
+              <div className="flip">
+                <CardFront
+                  item={current}
+                  settings={settings}
+                  flipped={flipped}
+                  dragX={dragX}
+                  partnerPick={mode === "theirs" ? partner : null}
+                  onInfo={() => setFlipped(true)}
+                />
+                <div className="face back" aria-hidden={!flipped}>
+                  <div className="back-scroll">
+                    <button className="back-flip" onClick={() => setFlipped(false)} tabIndex={flipped ? 0 : -1}>
+                      <RotateCcw size={14} aria-hidden="true" /> Back to poster
+                    </button>
+                    <MediaDetails item={current} settings={settings} householdServices={householdServices} />
+                  </div>
                 </div>
-                {current.overview && <p className="swipe-overview">{current.overview.length > 130 ? current.overview.slice(0, 130) + "…" : current.overview}</p>}
               </div>
-              {mode === "theirs" && <div className="swipe-stamp their-pick">{partner}'s pick</div>}
-              {dragX > 40 && <div className="swipe-stamp like">Like</div>}
-              {dragX < -40 && <div className="swipe-stamp pass">Pass</div>}
             </div>
           )}
+        </div>
+      </div>
 
-          {current && (
-            <div className="swipe-actions">
-              <button className="swipe-btn swipe-btn-pass" onClick={() => commitSwipe(false)} aria-label="Pass"><X size={22} /></button>
-              <button className="swipe-btn swipe-btn-like" onClick={() => commitSwipe(true)} aria-label="Like"><Heart size={22} /></button>
-            </div>
-          )}
-          <p className="hint" style={{ textAlign: "center", marginTop: 10 }}>
-            {mode === "discover" ? "Swipe or tap — when you both like the same one, it's added automatically." : `These are things ${partner} already liked. Like one back and it goes straight to your list.`}
-          </p>
+      {current && (
+        <div className="swipe-actions">
+          <button className="swipe-btn swipe-btn-pass" onClick={() => commitSwipe(false)} aria-label={`Pass on ${current.title}`}><X size={24} aria-hidden="true" /></button>
+          <button className="swipe-btn swipe-btn-like" onClick={() => commitSwipe(true)} aria-label={`Like ${current.title}`}><Heart size={24} aria-hidden="true" /></button>
         </div>
       )}
     </div>
