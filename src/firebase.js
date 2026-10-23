@@ -12,10 +12,5 @@ const firebaseConfig = {
      messagingSenderId: "PASTE THE VALUE YOU SEE",
      appId: "PASTE THE VALUE YOU SEE",
    };
-// 2b. Pick a hard-to-guess room name only the two of you know.
-// This keeps strangers from stumbling onto your list even though the
-// site itself is public. Change this to something unique before deploying.
-export const ROOM_ID = "bubbles15";
-
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);

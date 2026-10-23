@@ -61,11 +61,7 @@ service cloud.firestore {
    Click **Publish**. This keeps the database open only under the `movienight`
    collection — anyone who doesn't know your specific room ID can't find your data.
 
-7. Back in `src/firebase.js`, change `ROOM_ID` to something unique and hard to
-   guess (like a random word plus numbers) — this is effectively your shared
-   "room code" so only you two land on the same list.
-
-8. Commit and push the updated `src/firebase.js`:
+7. Commit and push the updated `src/firebase.js`:
 
 ```
 git add src/firebase.js
@@ -74,6 +70,13 @@ git push
 ```
 
 GitHub Actions will rebuild and redeploy automatically.
+
+The site now supports any number of couples sharing the same deployment —
+there's no more hardcoded room ID to edit. The first time you open the app,
+choose **Start a room** to get a short, shareable code (like `amber-otter-42`),
+or **Join a room** if your partner already made one. Only people who know the
+code can see that room's list — same obscurity-based privacy as before, just
+chosen in the app instead of hardcoded at deploy time.
 
 ## 5. Set your TMDB key
 
@@ -92,8 +95,11 @@ Open the GitHub Pages URL on your phone, then:
 - If your repo name isn't `movie-night`, edit the `base` value in
   `vite.config.js` to match before pushing (e.g. `/your-repo-name/`).
 - The site is public, but the Firestore data is only reachable if someone
-  knows your `ROOM_ID`, and the site itself has no listing anywhere — it's
+  knows your room code, and the site itself has no listing anywhere — it's
   effectively private by obscurity, not bank-vault security. Don't put
   anything sensitive in it.
+- Add a free [Trakt.tv](https://trakt.tv/oauth/applications) Client ID in
+  Settings (optional) to blend Trakt's trending data into Discover's
+  "trending" quarter, alongside TMDB's own trending feed.
 - Both of you now get live sync: if one person adds a movie, the other sees
   it appear in real time without refreshing.
