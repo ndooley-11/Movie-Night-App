@@ -998,22 +998,16 @@ label.field-label .input { width: 100%; color: var(--text); }
 @keyframes cta-float { to { transform: translate(-50%, calc(-50% - 4px)); } }
 .pick-stage.has-result { padding-top: clamp(12px, 3vh, 30px); }
 .has-result .pick-winner { margin-top: 0; }
-.pick-poster-card { position: relative; isolation: isolate; overflow: hidden; width: 100%; max-width: 360px; min-height: clamp(360px, 52vh, 480px); display: flex; align-items: flex-end; margin: 20px auto 0; border-radius: 20px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow-float); text-align: left; }
-.pick-card-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-.poster-fallback.pick-card-art { background: var(--surface); color: var(--text-muted); }
-.poster-fallback.pick-card-art > span { display: none; }
-.poster-fallback.pick-card-art svg { position: absolute; top: 25%; left: calc(50% - 14px); }
-.pick-card-caption { width: 100%; padding: 100px 22px 22px; margin-top: 140px; background: linear-gradient(transparent, rgba(var(--card-ink), .93) 40%, rgba(var(--card-ink), .98)); }
-.pick-card-caption h3 { margin: 0 0 10px; font-size: 28px; line-height: 1.15; overflow-wrap: anywhere; }
-.pick-card-caption .meta-row { margin: 0 0 18px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
-.pick-card-toolbar { display: flex; justify-content: center; flex-wrap: wrap; gap: 24px; margin-top: 12px; }
-.pick-card-toolbar .link-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; color: var(--text-muted); }
+.has-result .pick-winner-poster { width: clamp(150px, 24vh, 210px); height: auto; aspect-ratio: 2/3; border: 1px solid var(--border-strong); border-radius: 18px; margin-bottom: 20px; }
+.pick-result-caption { color: var(--text-muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
 .has-result .pool-count { margin: 8px 0 0; }
-.pick-confirm { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; border: 1px solid var(--border-strong); cursor: pointer; transition: background .18s, border-color .18s; }
+.pick-result-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 22px; }
+.pick-confirm, .pick-round { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); cursor: pointer; transition: background .18s, border-color .18s; }
 .pick-confirm { padding: 0 18px; gap: 8px; border-radius: 24px; font-size: 14px; font-weight: 650; color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
-.pick-confirm:hover:not(:disabled) { background: var(--surface-raised); border-color: var(--accent-line); }
-.pick-confirm:active:not(:disabled) { background: var(--surface-raised); }
-.pick-confirm:disabled { opacity: .5; cursor: default; }
+.pick-round { width: 46px; border-radius: 50%; flex-shrink: 0; }
+.pick-confirm:hover:not(:disabled), .pick-round:hover:not(:disabled) { background: var(--surface-raised); border-color: var(--accent-line); }
+.pick-confirm:active:not(:disabled), .pick-round:active:not(:disabled) { background: var(--surface-raised); }
+.pick-confirm:disabled, .pick-round:disabled { opacity: .5; cursor: default; }
 .pick-vetoes { margin: 16px auto 0; max-width: 360px; }
 .pick-vetoes summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; color: var(--text-muted); font-size: 13px; cursor: pointer; list-style: none; }
 .pick-vetoes summary::-webkit-details-marker { display: none; }
@@ -1021,7 +1015,7 @@ label.field-label .input { width: 100%; color: var(--text); }
 .pick-vetoes .veto-row .btn { min-height: 44px; font-size: 13px; }
 .pick-vetoes .hint { margin-top: 0; }
 .tonight-choice { border-color: var(--accent-line); }
-@media (prefers-reduced-motion: reduce) { .pick-confirm { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .pick-confirm, .pick-round { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .fan-cta { animation: none; } .fan-button { transition: none; } }
 
 /* ---- Home-screen fit ----
