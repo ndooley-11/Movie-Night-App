@@ -159,7 +159,12 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand"><Clapperboard size={20} /> Movie Night</div>
-        <div className="room-pill">{normalizedRoom}</div>
+        <div className="topbar-right">
+          <button className={"header-icon-btn" + (tab === "settings" ? " active" : "")} onClick={() => setTab("settings")} aria-label="Settings" aria-current={tab === "settings"}>
+            <SettingsIcon size={17} />
+          </button>
+          <div className="room-pill">{normalizedRoom}</div>
+        </div>
       </header>
 
       {!settings.apiKey && tab !== "settings" && (
@@ -200,11 +205,13 @@ export default function App() {
 
       <nav className="tabbar">
         <TabBtn icon={<Plus size={17} />} label="Suggest" active={tab === "suggest"} onClick={() => setTab("suggest")} />
-        <TabBtn icon={<Flame size={17} />} label="Discover" active={tab === "discover"} onClick={() => setTab("discover")} />
         <TabBtn icon={<Shuffle size={17} />} label="Pick" active={tab === "pick"} onClick={() => setTab("pick")} />
+        <div className="tabbar-spacer" />
         <TabBtn icon={<Eye size={17} />} label="Watched" active={tab === "watched"} onClick={() => setTab("watched")} />
         <TabBtn icon={<Award size={17} />} label="Stats" active={tab === "stats"} onClick={() => setTab("stats")} />
-        <TabBtn icon={<SettingsIcon size={17} />} label="Setup" active={tab === "settings"} onClick={() => setTab("settings")} />
+        <button className={"fab-discover" + (tab === "discover" ? " active" : "")} onClick={() => setTab("discover")} aria-label="Discover" aria-current={tab === "discover"}>
+          <Flame size={23} />
+        </button>
       </nav>
     </div>
   );

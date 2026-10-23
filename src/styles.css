@@ -88,6 +88,7 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; letter-spacing: -0.2px; }
 .brand svg { color: var(--accent); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
 .room-pill {
   font-size: 11.5px;
   color: var(--text-muted);
@@ -97,6 +98,19 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
   padding: 5px 11px;
   font-family: monospace;
 }
+.header-icon-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.header-icon-btn.active { color: var(--accent); border-color: var(--accent); }
 
 .banner {
   background: var(--surface-2);
@@ -241,9 +255,31 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 
 /* ---- toast / nav / modal ---- */
 .toast { position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--on-accent); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 20; max-width: 90%; text-align: center; }
-.tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; background: var(--surface); border-top: 1px solid var(--border); padding: 6px 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+.tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; align-items: center; background: var(--surface); border-top: 1px solid var(--border); padding: 6px 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); overflow: visible; }
 .tab { flex: 1; background: none; border: none; color: var(--text-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0; font-size: 10px; font-weight: 600; cursor: pointer; }
 .tab.active { color: var(--accent); }
+.tabbar-spacer { width: 62px; flex-shrink: 0; }
+
+.fab-discover {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 4px solid var(--bg);
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(255, 122, 82, 0.45);
+  transition: transform 0.15s;
+}
+.fab-discover:hover { transform: translateX(-50%) scale(1.05); }
+.fab-discover.active { box-shadow: 0 0 0 3px rgba(255, 122, 82, 0.35), 0 8px 20px rgba(255, 122, 82, 0.45); }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 30; }
 .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; width: 100%; max-width: 280px; }
 
