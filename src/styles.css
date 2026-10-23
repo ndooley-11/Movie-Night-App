@@ -640,7 +640,7 @@ input, textarea { caret-color: var(--accent); }
 .score-md { font-size: 15px; padding: 5px 11px 5px 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; min-height: 36px; }
 .mini-badge { font-size: 10.5px; font-weight: 800; padding: 2px 5px; border-radius: 4px; line-height: 1.25; letter-spacing: 0.01em; }
 .mini-badge.imdb { background: #f5c518; color: #000; }
-.mini-badge.rt { background: #c9290c; color: #fff; }
+.rt-icon { flex-shrink: 0; display: block; }
 .mini-badge.tmdb { background: #01b4e4; color: #032541; }
 
 /* ---- sheets / modal ---- */

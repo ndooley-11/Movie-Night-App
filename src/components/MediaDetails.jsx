@@ -63,13 +63,48 @@ export const SCORE_SOURCES = {
   tmdb: { badge: "TMDB", name: "TMDB" },
 };
 
+// Rotten Tomatoes' own scale: 60% and up is Fresh (a tomato), below is
+// Rotten (a splat). Drawn here rather than copied from their artwork.
+function FreshTomato({ size }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="rt-icon">
+      <ellipse cx="12" cy="14.2" rx="9.4" ry="8.3" fill="#fa320a" />
+      <ellipse cx="8.4" cy="11.4" rx="2.6" ry="1.7" fill="#fff" opacity="0.32" transform="rotate(-28 8.4 11.4)" />
+      <path d="M12 9.6 9.3 11.2l.8-2.4-2.6-.6 2.6-.9-.9-2.3 2.5 1.2L12 4.2l.6 2 2.5-1.2-.9 2.3 2.6.9-2.6.6.8 2.4Z" fill="#00912d" />
+      <path d="M12 6.4c0-1.5.5-2.6 1.6-3.4" stroke="#00912d" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function RottenSplat({ size }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="rt-icon">
+      <path
+        fill="#0ac855"
+        d="M12 3.6c1.2 0 1.6 2 2.6 2.2 1.1.2 2.4-1.3 3.3-.6.9.7-.4 2.3.1 3.2.5.9 2.6.9 2.8 2 .2 1.1-1.8 1.7-1.9 2.8-.1 1.1 1.7 2.2 1.1 3.1-.6.9-2.4-.1-3.3.5-.9.6-.6 2.7-1.7 2.9-1.1.2-1.7-1.8-2.9-1.8s-1.8 2-2.9 1.8c-1.1-.2-.8-2.3-1.7-2.9-.9-.6-2.7.4-3.3-.5-.6-.9 1.2-2 1.1-3.1-.1-1.1-2.1-1.7-1.9-2.8.2-1.1 2.3-1.1 2.8-2 .5-.9-.8-2.5.1-3.2.9-.7 2.2.8 3.3.6C10.4 5.6 10.8 3.6 12 3.6Z"
+      />
+      <circle cx="3.2" cy="4.6" r="1.1" fill="#0ac855" />
+      <circle cx="21" cy="19.4" r="0.9" fill="#0ac855" />
+      <circle cx="20.4" cy="5.4" r="0.7" fill="#0ac855" />
+    </svg>
+  );
+}
+
 export function Score({ source, value, href, size = "md" }) {
   const s = SCORE_SOURCES[source];
-  const body = (<><span className={"mini-badge " + source} aria-hidden="true">{s.badge}</span><span className="score-value">{value}</span></>);
+  let mark = <span className={"mini-badge " + source} aria-hidden="true">{s.badge}</span>;
+  let label = `${s.name} ${value}`;
+  if (source === "rt") {
+    const fresh = parseInt(value, 10) >= 60;
+    const px = size === "sm" ? 18 : 20;
+    mark = fresh ? <FreshTomato size={px} /> : <RottenSplat size={px} />;
+    label = `Rotten Tomatoes ${value}, ${fresh ? "Fresh" : "Rotten"}`;
+  }
+  const body = (<>{mark}<span className="score-value">{value}</span></>);
   const cls = "score score-" + size;
   return href
-    ? <a className={cls} href={href} target="_blank" rel="noopener noreferrer" aria-label={`${s.name} ${value}`}>{body}</a>
-    : <span className={cls} role="img" aria-label={`${s.name} ${value}`}>{body}</span>;
+    ? <a className={cls} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>{body}</a>
+    : <span className={cls} role="img" aria-label={label}>{body}</span>;
 }
 
 export default function MediaDetails({ item, settings, householdServices = [], showPoster = false, active = true, fetchRatings = true }) {
