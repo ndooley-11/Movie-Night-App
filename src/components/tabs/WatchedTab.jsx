@@ -30,7 +30,7 @@ export default function WatchedTab({ movies, me, partner, names, meIdx, settings
     catch (e) { setError(e.message || 'Could not save. Please try again.'); }
     finally { setBusy(false); }
   }
-  const filters = [['all','All'],['both','Together'],['me','Only you'],['partner',`Only ${partner}`]];
+  const filters = [['all','All'],['both','Both watched'],['me','Only you'],['partner',`Only ${partner}`]];
   return <div className="watch-library">
     <div className="watch-tabs" role="group" aria-label="Watch library views">
       <button aria-pressed={view === 'watching'} className={view === 'watching' ? 'active' : ''} onClick={() => setView('watching')}>Watching <span>{activeShows.length}</span></button>
@@ -51,7 +51,7 @@ export default function WatchedTab({ movies, me, partner, names, meIdx, settings
         const reviews = Object.entries(m.reviews || {}).filter(([,r]) => r?.text);
         const preview = reviews.find(([key,r]) => key === `p${meIdx}` || !r.spoiler);
         return <li className="finished-card" key={m.id}>
-          <div className="finished-heading"><button className="media-row-main" onClick={() => openDetails(m)} aria-label={`${m.title}, show details`}><PosterThumb poster={m.poster} /><span className="media-row-body"><span className="media-row-title">{m.title}</span><span className="meta-row">{statusOf(m) === 'both' ? 'Watched together' : `Seen by ${statusOf(m) === 'me' ? 'you' : partner}`}{m.watchedAt ? ` · ${new Date(m.watchedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}` : ''}</span></span></button><button className="icon-btn" aria-label={`More options for ${m.title}`} onClick={() => { setError(''); setSheet({id:m.id, type:'menu'}); }}><MoreHorizontal size={20} /></button></div>
+          <div className="finished-heading"><button className="media-row-main" onClick={() => openDetails(m)} aria-label={`${m.title}, show details`}><PosterThumb poster={m.poster} /><span className="media-row-body"><span className="media-row-title">{m.title}</span><span className="meta-row">{statusOf(m) === 'both' ? 'Both watched' : `Seen by ${statusOf(m) === 'me' ? 'you' : partner}`}{m.watchedAt ? ` · ${new Date(m.watchedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}` : ''}</span></span></button><button className="icon-btn" aria-label={`More options for ${m.title}`} onClick={() => { setError(''); setSheet({id:m.id, type:'menu'}); }}><MoreHorizontal size={20} /></button></div>
           <div className="rating-summary">{names.map((name,i) => <span key={i}>{i === meIdx ? 'You' : name} <Star size={13} aria-hidden="true" /> <b>{m.ratings?.[name] ? `${m.ratings[name]}/5` : '—'}</b></span>)}</div>
           {preview && <p className="review-snippet">“{preview[1].text.slice(0,120)}{preview[1].text.length > 120 ? '…' : ''}”</p>}
           <button className="review-open" onClick={() => { setError(''); setSheet({id:m.id,type:'reviews'}); }}>{reviews.length ? `${reviews.length} review${reviews.length === 1 ? '' : 's'} · Ratings & notes` : 'Add your rating & review'} <span aria-hidden="true">→</span></button>

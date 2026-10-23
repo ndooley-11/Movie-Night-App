@@ -69,14 +69,20 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, t
         <p className="pick-eyebrow">Tonight’s pick</p><Poster movie={visibleResult} className="pick-winner-poster" /><h3>{visibleResult.title}</h3>
         <p className="meta-row">{[visibleResult.year, visibleResult.mediaType === 'tv' ? 'Show' : 'Movie', ...(visibleResult.genreNames || []).slice(0, 2)].filter(Boolean).join(' · ')}</p>
         <button className="link-btn center" onClick={() => openDetails(visibleResult)}><Info size={15} /> More info</button>
-      </div> : <div className={'poster-fan' + (spinning ? ' is-shuffling' : '')} aria-label={pool.length ? 'Candidate posters; center poster is not a selection' : 'No eligible titles'} aria-busy={spinning}>
-        {preview.length ? preview.map((m, i) => { const offset = i - (preview.length - 1) / 2; return <div key={m.id} className="fan-card" style={{ '--fan-offset': offset, '--fan-depth': Math.abs(offset), zIndex: Math.round(10 - Math.abs(offset)) }}><Poster movie={spinning && i === Math.floor(preview.length / 2) && display ? display : m} className="fan-poster" /></div>; })
-          : <div className="pick-empty"><Film size={44} aria-hidden="true" /><h3>{movies.length ? 'A different mood?' : 'Start your shortlist'}</h3><p>{movies.length ? 'No titles match. Refine your pick to see more options.' : 'Add titles in Suggest or match in Discover, then come back here.'}</p></div>}
-      </div>}
+      </div> : preview.length ? (
+        // The fan itself is the control: tap the cards to pick.
+        <button type="button" className={'poster-fan fan-button' + (spinning ? ' is-shuffling' : '')} onClick={() => spin()} disabled={spinning || busy} aria-busy={spinning}
+          aria-label={spinning ? 'Picking a title' : `Pick a title for us from ${pool.length} in the running`}>
+          {preview.map((m, i) => { const offset = i - (preview.length - 1) / 2; return <span key={m.id} className="fan-card" aria-hidden="true" style={{ '--fan-offset': offset, '--fan-depth': Math.abs(offset), zIndex: Math.round(10 - Math.abs(offset)) }}><Poster movie={spinning && i === Math.floor(preview.length / 2) && display ? display : m} className="fan-poster" /></span>; })}
+          <span className="fan-cta" aria-hidden="true"><Shuffle size={18} />{spinning ? 'Picking…' : 'Tap the cards to pick'}</span>
+        </button>
+      ) : <div className="poster-fan" aria-label="No eligible titles">
+          <div className="pick-empty"><Film size={44} aria-hidden="true" /><h3>{movies.length ? 'A different mood?' : 'Start your shortlist'}</h3><p>{movies.length ? 'No titles match. Refine your pick to see more options.' : 'Add titles in Suggest or match in Discover, then come back here.'}</p></div>
+        </div>}
       <p className="hint pool-count" role="status">{spinning ? 'Shuffling your shortlist…' : `${pool.length} title${pool.length === 1 ? '' : 's'} in the running`}</p>
       {visibleResult && !spinning && <button className="btn btn-primary pick-main-action" onClick={watch} disabled={busy}><Check size={22} />{busy ? 'Saving…' : 'Choose for tonight'}</button>}
-      <button className={'btn pick-main-action ' + (visibleResult ? 'btn-outline' : 'btn-primary')} onClick={() => spin()} disabled={!pool.length || spinning || busy}><Shuffle size={24} aria-hidden="true" />{spinning ? 'Picking…' : visibleResult ? 'Pick again' : 'Pick for us'}</button>
-      {!visibleResult && <p className="hint pick-helper">We’ll choose from your shared list.</p>}
+      {visibleResult && !spinning && <button className="btn btn-outline pick-again" onClick={() => spin()} disabled={!pool.length || busy}><Shuffle size={18} aria-hidden="true" />Pick again</button>}
+      {!visibleResult && !!pool.length && <p className="hint pick-helper">We’ll choose from your shared list.</p>}
       {visibleResult && !spinning && <div className="veto-row"><button className="btn btn-outline" disabled={vetoUsed[me] || busy} onClick={() => veto(me)}><ThumbsDown size={15} />{vetoUsed[me] ? 'Veto used' : 'Your veto'}</button><button className="btn btn-outline" disabled={vetoUsed[partner] || busy} onClick={() => veto(partner)}><ThumbsDown size={15} />{vetoUsed[partner] ? 'Veto used' : `${partner}’s veto`}</button></div>}
       {!pool.length && vetoed.length > 0 && <button className="link-btn center" onClick={() => { setVetoed([]); setVetoUsed({}); }}>Reset vetoes</button>}
       {error && <p className="feature-error" role="alert">{error}</p>}

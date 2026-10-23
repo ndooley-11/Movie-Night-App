@@ -1,5 +1,7 @@
-import { useId } from "react";
-import { Film, Tv, Star, Check, X } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Film, Tv, Star, User, Users, X } from "lucide-react";
+import { ratingAt, stepRating, starFill, ratingText } from "../lib/rating.js";
+import { streamingAccess } from "../lib/streaming.js";
 
 // Simplified from the popcorn app icon so it stays legible at header size:
 // same puffed top, rim and tapered bucket, with two stripe gaps instead of three.
@@ -26,25 +28,90 @@ export function BrandMark({ size = 22 }) {
   );
 }
 
-export function Stars({ value, onChange, size = 16, readOnly = false, label = "Rating" }) {
+function StarRow({ value, size }) {
+  return [1, 2, 3, 4, 5].map((n) => {
+    const fill = starFill(value, n);
+    return (
+      <span key={n} className="star-cell">
+        <Star size={size} aria-hidden="true" fill="none" color={fill ? "var(--gold)" : "var(--text-faint)"} />
+        {fill > 0 && (
+          <span className="star-fill" style={fill < 1 ? { clipPath: "inset(0 50% 0 0)" } : undefined}>
+            <Star size={size} aria-hidden="true" fill="var(--gold)" color="var(--gold)" />
+          </span>
+        )}
+      </span>
+    );
+  });
+}
+
+// Half-star rating as one slider: tap the left half of a star for a half,
+// drag across to adjust. It only commits on release, so dragging doesn't save
+// on every pixel. Tapping the current rating again clears it.
+export function Stars({ value = 0, onChange, size = 16, readOnly = false, label = "Rating" }) {
+  const rowRef = useRef(null);
+  const press = useRef(null);
+  const [preview, setPreview] = useState(null);
+  const shown = preview ?? (value || 0);
+
   if (readOnly) {
     return (
-      <span className="stars" role="img" aria-label={value ? `${label}: ${value} of 5 stars` : `${label}: not rated`}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <span key={n} className="star-cell">
-            <Star size={size} aria-hidden="true" fill={value >= n ? "var(--gold)" : "none"} color={value >= n ? "var(--gold)" : "var(--text-faint)"} />
-          </span>
-        ))}
+      <span className="stars" role="img" aria-label={`${label}: ${ratingText(value)}`}>
+        <StarRow value={value || 0} size={size} />
       </span>
     );
   }
+
+  const at = (e) => {
+    const r = rowRef.current.getBoundingClientRect();
+    return ratingAt(e.clientX - r.left, r.width);
+  };
+  function down(e) {
+    if (e.button > 0) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const v = at(e);
+    press.current = { x: e.clientX, moved: false, start: value || 0 };
+    setPreview(v);
+  }
+  function move(e) {
+    if (!press.current) return;
+    if (Math.abs(e.clientX - press.current.x) > 4) press.current.moved = true;
+    setPreview(at(e));
+  }
+  function up(e) {
+    const p = press.current;
+    press.current = null;
+    if (!p) return;
+    const v = at(e);
+    setPreview(null);
+    onChange(!p.moved && v === p.start ? 0 : v);
+  }
+  function cancel() { press.current = null; setPreview(null); }
+  function key(e) {
+    const steps = { ArrowRight: 0.5, ArrowUp: 0.5, ArrowLeft: -0.5, ArrowDown: -0.5 };
+    if (e.key in steps) { e.preventDefault(); onChange(stepRating(value, steps[e.key])); }
+    else if (e.key === "Home") { e.preventDefault(); onChange(0); }
+    else if (e.key === "End") { e.preventDefault(); onChange(5); }
+  }
+
   return (
-    <div className="stars" role="group" aria-label={label}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" className="star-btn" onClick={() => onChange(n === value ? 0 : n)} aria-label={`${n} star${n > 1 ? "s" : ""}`} aria-pressed={value === n}>
-          <Star size={size} aria-hidden="true" fill={value >= n ? "var(--gold)" : "none"} color={value >= n ? "var(--gold)" : "var(--text-faint)"} />
-        </button>
-      ))}
+    <div
+      ref={rowRef}
+      className="stars stars-input"
+      role="slider"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={5}
+      aria-valuenow={value || 0}
+      aria-valuetext={ratingText(value)}
+      style={{ "--star": `${Math.max(34, size + 16)}px` }}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={cancel}
+      onKeyDown={key}
+    >
+      <StarRow value={shown} size={size} />
     </div>
   );
 }
@@ -81,16 +148,28 @@ export function PosterThumb({ poster, size = "md" }) {
     : <div className={"poster poster-fallback poster-" + size}><Film size={18} aria-hidden="true" /></div>;
 }
 
-export function AvailabilityBadge({ providers, haveIt }) {
-  if (providers?.flatrate?.length > 0) {
-    return (
-      <span className={"badge " + (haveIt ? "badge-have" : "badge-nohave")}>
-        {haveIt ? <Check size={11} aria-hidden="true" /> : <X size={11} aria-hidden="true" />} {providers.flatrate.slice(0, 2).join(", ")}
+// Green: you can both stream it. Blue: only one of you (named). Red: neither.
+// Each state also has its own icon and words, so it never relies on color alone.
+export function AccessBadge({ providers, people }) {
+  const a = streamingAccess(providers, people.myServices, people.partnerServices);
+  if (a.level === "unknown") return null;
+  const where = a.via.slice(0, 2).join(", ");
+  const content = {
+    both: { icon: <Users size={12} aria-hidden="true" />, who: "Both", text: a.isFree ? `Free on ${where}` : where, sr: `You can both stream it${where ? ` on ${where}` : ""}` },
+    me: { icon: <User size={12} aria-hidden="true" />, who: "You", text: where, sr: `Only you can stream it, on ${where}` },
+    partner: { icon: <User size={12} aria-hidden="true" />, who: people.partner, text: where, sr: `Only ${people.partner} can stream it, on ${where}` },
+    neither: { icon: <X size={12} aria-hidden="true" />, who: a.rentOnly ? "Rent or buy" : "Neither", text: a.rentOnly ? "" : where, sr: a.rentOnly ? "Not streaming. Rent or buy only" : `Neither of you has ${where}` },
+  }[a.level];
+  return (
+    <span className={`access-badge access-${a.level === "partner" ? "me" : a.level}`} title={content.sr}>
+      <span className="access-visual" aria-hidden="true">
+        {content.icon}
+        <b>{content.who}</b>
+        {content.text && <span className="access-where">{content.text}</span>}
       </span>
-    );
-  }
-  if (providers?.rent?.length > 0) return <span className="badge badge-rent">Rent / buy</span>;
-  return null;
+      <span className="visually-hidden">{content.sr}</span>
+    </span>
+  );
 }
 
 export function Toast({ toast }) {

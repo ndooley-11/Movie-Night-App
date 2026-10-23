@@ -1,7 +1,73 @@
-import { useState, useEffect, useRef } from "react";
-import { Play, ExternalLink, X, Film } from "lucide-react";
+import { useState, useEffect, useRef, useId } from "react";
+import { Play, ExternalLink, X, Film, Tv } from "lucide-react";
 import { fetchFullDetails } from "../lib/api.js";
 import { fetchOmdbRatings, getCachedOmdb, rottenTomatoesSearchUrl } from "../lib/omdb.js";
+import { groupProviders, providerAccess } from "../lib/streaming.js";
+import { AccessBadge } from "./shared.jsx";
+
+const NO_PEOPLE = { me: "", partner: "", myServices: [], partnerServices: [] };
+
+function WhereToWatch({ watch, fallback, people, region }) {
+  // Fresh details carry logos and the JustWatch link; a title added by hand or
+  // still loading falls back to the names saved when it was added.
+  const src = watch || {
+    flatrate: (fallback?.flatrate || []).map((name) => ({ name })),
+    free: (fallback?.free || []).map((name) => ({ name })),
+    rent: [...(fallback?.rent || []), ...(fallback?.buy || [])].map((name) => ({ name })),
+  };
+  const streams = groupProviders(src.flatrate);
+  const free = groupProviders(src.free);
+  const rent = groupProviders(src.rent);
+  const summary = { flatrate: src.flatrate.map((p) => p.name), free: src.free.map((p) => p.name), rent: src.rent.map((p) => p.name) };
+  const chip = { both: ["Both", "access-both"], me: ["You", "access-me"], partner: [people.partner, "access-me"] };
+  const headingId = useId();
+
+  return (
+    <section className="details-section where-to-watch" aria-labelledby={headingId}>
+      <div className="wtw-head">
+        <h4 id={headingId} className="details-subhead">Where to watch</h4>
+        <AccessBadge providers={summary} people={people} />
+      </div>
+      {!streams.length && !free.length && !rent.length && (
+        <p className="hint">Not streaming in your region ({region}) right now.</p>
+      )}
+      {(streams.length > 0 || free.length > 0) && (
+        <ul className="wtw-list">
+          {streams.map((p) => {
+            const level = providerAccess(p.raw, people.myServices, people.partnerServices);
+            return (
+              <li key={p.name}>
+                {p.logo ? <img src={p.logo} alt="" loading="lazy" /> : <span className="wtw-logo-fallback" aria-hidden="true"><Tv size={15} /></span>}
+                <span className="wtw-name">{p.name}</span>
+                {chip[level]
+                  ? <span className={`wtw-chip ${chip[level][1]}`}>{chip[level][0]}</span>
+                  : <span className="wtw-none">Not subscribed</span>}
+              </li>
+            );
+          })}
+          {free.map((p) => (
+            <li key={`free-${p.name}`}>
+              {p.logo ? <img src={p.logo} alt="" loading="lazy" /> : <span className="wtw-logo-fallback" aria-hidden="true"><Tv size={15} /></span>}
+              <span className="wtw-name">{p.name}</span>
+              <span className="wtw-chip access-both">Free</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rent.length > 0 && (
+        <p className="details-line wtw-rent">
+          <span className="muted">Rent or buy: </span>
+          {rent.slice(0, 4).map((p) => p.name).join(", ")}{rent.length > 4 ? ` +${rent.length - 4} more` : ""}
+        </p>
+      )}
+      {watch?.link && (
+        <a className="wtw-credit" href={watch.link} target="_blank" rel="noopener noreferrer">
+          Availability by JustWatch <ExternalLink size={12} aria-hidden="true" />
+        </a>
+      )}
+    </section>
+  );
+}
 
 const resolved = new Map();
 const pending = new Map();
@@ -107,7 +173,7 @@ export function Score({ source, value, href, size = "md" }) {
     : <span className={cls} role="img" aria-label={label}>{body}</span>;
 }
 
-export default function MediaDetails({ item, settings, householdServices = [], showPoster = false, active = true, fetchRatings = true }) {
+export default function MediaDetails({ item, settings, people = NO_PEOPLE, showPoster = false, active = true, fetchRatings = true }) {
   const { data, loading, error } = useDetails(item, settings.apiKey, settings.region, active);
   const omdb = useOmdb(data?.imdbId, settings.omdbKey, active && fetchRatings);
 
@@ -161,6 +227,10 @@ export default function MediaDetails({ item, settings, householdServices = [], s
         <p className="details-line"><span className="muted">{data.peopleLabel} </span>{data.people.join(", ")}</p>
       )}
 
+      {(data || item.providers) && item.tmdbId && (
+        <WhereToWatch watch={data?.watch} fallback={item.providers} people={people} region={settings.region} />
+      )}
+
       {data?.cast?.length > 0 && (
         <div className="details-section">
           <h4 className="details-subhead">Cast</h4>
@@ -176,15 +246,6 @@ export default function MediaDetails({ item, settings, householdServices = [], s
             ))}
           </ul>
         </div>
-      )}
-
-      {data?.streaming?.length > 0 && (
-        <p className="details-line">
-          <span className="muted">Streaming on </span>
-          {data.streaming.slice(0, 4).map((s, i) => (
-            <span key={s} className={householdServices.includes(s) ? "have-service" : ""}>{i > 0 ? ", " : ""}{s}</span>
-          ))}
-        </p>
       )}
 
       {data && (
@@ -203,7 +264,7 @@ export default function MediaDetails({ item, settings, householdServices = [], s
   );
 }
 
-export function DetailsSheet({ item, settings, householdServices, onClose, footer }) {
+export function DetailsSheet({ item, settings, people, onClose, footer }) {
   const closeRef = useRef(null);
 
   useEffect(() => {
@@ -219,7 +280,7 @@ export function DetailsSheet({ item, settings, householdServices, onClose, foote
         <div className="sheet-grabber" aria-hidden="true" />
         <button ref={closeRef} className="sheet-close" onClick={onClose} aria-label="Close details"><X size={18} /></button>
         <div className="sheet-body">
-          <MediaDetails item={item} settings={settings} householdServices={householdServices} showPoster />
+          <MediaDetails item={item} settings={settings} people={people} showPoster />
           {footer}
         </div>
       </div>

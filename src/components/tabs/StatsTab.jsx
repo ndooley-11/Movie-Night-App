@@ -49,7 +49,7 @@ export default function StatsTab({ movies, names, me, partner }) {
       <h2 className="section-title">Your list</h2>
       <dl className="stat-list">
         <Row label="Waiting to watch" value={waiting} />
-        <Row label="Watched together" value={together} />
+        <Row label="Both watched" value={together} />
         {onlyMe > 0 && <Row label="Only you've seen" value={onlyMe} />}
         {onlyPartner > 0 && <Row label={`Only ${partner} has seen`} value={onlyPartner} />}
         <Row label="Movies · Shows" value={`${movies.length - shows} · ${shows}`} />

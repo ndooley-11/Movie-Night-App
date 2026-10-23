@@ -5,6 +5,7 @@ import { fetchGenreMap, fetchProviders, fetchDetails, normalizeResult } from "./
 import { normalizeRoomCode } from "./lib/room.js";
 import { seenByOf } from "./lib/seen.js";
 import { withReview, withProgress, allFinishedTogether } from './lib/personalMedia.js';
+import { withSeenIt } from './lib/seenIt.js';
 import { samePosition } from './lib/players.js';
 import RoomGate from "./components/RoomGate.jsx";
 import { TabBtn, Stars, Toast, BrandMark } from "./components/shared.jsx";
@@ -128,6 +129,15 @@ export default function App() {
     });
   }
 
+  // "Seen it" from Discover: on to Watched as seen by this person only.
+  async function saveSeenIt(item, { rating, text, spoiler }) {
+    let providers;
+    try { providers = await fetchProviders(item.mediaType, item.tmdbId, settings.apiKey, settings.region); }
+    catch { /* availability is a nice-to-have; don't block saving */ }
+    await saveMovies(current => withSeenIt(current, item, { me, meIdx, rating, text, spoiler, providers, id: uid() }));
+    showToast(`Saved "${item.title}" to Watched`, { label: 'View', onClick: () => { setTab('watched'); setToast(null); } });
+  }
+
   async function toggleHype(id) {
     await saveMovies(current => current.map((m) => m.id === id ? { ...m, hype: { ...m.hype, [me]: !m.hype?.[me] } } : m));
   }
@@ -243,12 +253,7 @@ export default function App() {
   }, [movies, ready, celebrate]);
 
   const allGenres = Array.from(new Set(movies.flatMap((m) => m.genreNames || []))).sort();
-  const householdServices = Array.from(new Set([...(settings.services[me] || []), ...(settings.services[partner] || [])]));
-
-  function haveIt(m) {
-    return (m.providers?.flatrate || []).some((s) => householdServices.includes(s)) ||
-      (m.providers?.free || []).some((s) => householdServices.includes(s));
-  }
+  const people = { me, partner, myServices: settings.services[me] || [], partnerServices: settings.services[partner] || [] };
 
   function copyRoomCode() {
     navigator.clipboard?.writeText(normalizedRoom).then(() => showToast("Room code copied")).catch(() => {});
@@ -301,10 +306,10 @@ export default function App() {
 
       <main className={"content" + (tab === "discover" ? " content-fill" : tab === 'pick' ? ' content-pick' : "")}>
         {tab === "suggest" && (
-          <SuggestTab settings={settings} genreMap={genreMap} movies={movies} me={me} haveIt={haveIt} toggleHype={toggleHype} onMarkSeen={setSeenPrompt} removeMovie={removeMovie} addItem={addItem} showToast={showToast} openDetails={setDetailsItem} />
+          <SuggestTab settings={settings} genreMap={genreMap} movies={movies} me={me} people={people} toggleHype={toggleHype} onMarkSeen={setSeenPrompt} removeMovie={removeMovie} addItem={addItem} showToast={showToast} openDetails={setDetailsItem} />
         )}
         {tab === "discover" && (
-          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} householdServices={householdServices} onMatch={(item) => celebrate(swipeKey(item.mediaType, item.tmdbId), item)} />
+          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} people={people} onMatch={(item) => celebrate(swipeKey(item.mediaType, item.tmdbId), item)} onSeenIt={saveSeenIt} />
         )}
         {tab === "pick" && (
           <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} contentType={settings.contentType} tonight={tonight} onChooseTonight={id => chooseTonight(id, meIdx)} onClearTonight={clearTonight} onFinishTonight={async id => { if (movies.find(m => m.id === id)?.mediaType === 'tv') await startShow(id); else await markSeen(id, 'both'); await clearTonight(id); }} openDetails={setDetailsItem} />
@@ -319,7 +324,7 @@ export default function App() {
       </main>
 
       {detailsItem && (
-        <DetailsSheet item={detailsItem} settings={settings} householdServices={householdServices} onClose={() => setDetailsItem(null)} />
+        <DetailsSheet item={detailsItem} settings={settings} people={people} onClose={() => setDetailsItem(null)} />
       )}
 
       {seenPromptMovie && (
@@ -329,7 +334,7 @@ export default function App() {
             <h2 className="sheet-title">Who watched “{seenPromptMovie.title}”?</h2>
             <div className="choice-list">
               <button className="choice" onClick={() => markSeen(seenPromptMovie.id, "both")} autoFocus>
-                <Users size={18} aria-hidden="true" /><span><b>We watched it together</b><span className="muted">Moves it to Watched for both of you</span></span>
+                <Users size={18} aria-hidden="true" /><span><b>We've both seen it</b><span className="muted">Together or separately. Moves it to Watched for both of you</span></span>
               </button>
               <button className="choice" onClick={() => markSeen(seenPromptMovie.id, "me")}>
                 <User size={18} aria-hidden="true" /><span><b>Just me</b><span className="muted">{partner} still hasn't seen it</span></span>

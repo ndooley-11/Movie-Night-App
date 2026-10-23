@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Heart, X, Film, Info, SlidersHorizontal, ChevronUp, RotateCcw } from "lucide-react";
+import { Heart, X, Film, Info, SlidersHorizontal, ChevronUp, RotateCcw, Eye } from "lucide-react";
 import { mediaTypesForFilter, fetchDetails, normalizeResult } from "../../lib/api.js";
 import { createMixer, refillPools, drawCards, isDrained } from "../../lib/discoverFeed.js";
 import { swipeKey } from "../../hooks.js";
 import { Switch } from "../shared.jsx";
 import MediaDetails, { useDetails, useOmdb, Score, formatRuntime } from "../MediaDetails.jsx";
+import SeenItSheet from "../SeenItSheet.jsx";
 
 const QUEUE_TARGET = 16;
 const REFILL_AT = 6;
@@ -60,8 +61,9 @@ function CardFront({ item, settings, flipped = false, partnerPick, onInfo, dragX
   );
 }
 
-export default function DiscoverTab({ settings, saveSettings, genreMap, movies, me, partner, swipes, setSwipe, showPassed, setShowPassed, language, setLanguage, householdServices, onMatch }) {
+export default function DiscoverTab({ settings, saveSettings, genreMap, movies, me, partner, swipes, setSwipe, showPassed, setShowPassed, language, setLanguage, people, onMatch, onSeenIt }) {
   const [mode, setMode] = useState("discover");
+  const [seenItem, setSeenItem] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [genreFilter, setGenreFilter] = useState(null);
   const [queue, setQueue] = useState([]);
@@ -92,7 +94,8 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
     movies.forEach((m) => keys.add(`${m.mediaType || "movie"}:${m.tmdbId}`));
     Object.entries(mySwipes).forEach(([key, val]) => {
       const { mediaType, tmdbId } = parseSwipeKey(key);
-      if (val === "like" || !showPassed) keys.add(`${mediaType}:${tmdbId}`);
+      // Likes and "seen it" never come back; passes only when that filter is on.
+      if (val === "like" || val === "seen" || !showPassed) keys.add(`${mediaType}:${tmdbId}`);
     });
     return keys;
   }, [movies, mySwipes, showPassed]);
@@ -205,20 +208,36 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
   const current = activeQueue[0];
   const next = activeQueue[1];
 
-  function commitSwipe(liked) {
-    if (!current || exiting) return;
-    setExiting(liked ? "right" : "left");
-    setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
-    // This like completes a match: confirm it now rather than waiting for the
-    // shared list to round-trip. App adds the title and de-duplicates.
-    if (liked && partnerSwipes[swipeKey(current.mediaType, current.tmdbId)] === "like") onMatch?.(current);
+  // Remove by key rather than position: in "partner liked" mode a sync effect
+  // can drop the same card first, and slicing would then lose the next one.
+  function dismissCurrent(direction) {
+    const key = `${current.mediaType}:${current.tmdbId}`;
+    const drop = (q) => q.filter((it) => `${it.mediaType}:${it.tmdbId}` !== key);
+    setExiting(direction);
     setTimeout(() => {
-      if (mode === "discover") setQueue((q) => q.slice(1));
-      else setTheirQueue((q) => q.slice(1));
+      setQueue(drop);
+      setTheirQueue(drop);
       setExiting(null);
       setDragX(0);
       setFlipped(false);
     }, 240);
+  }
+
+  function commitSwipe(liked) {
+    if (!current || exiting || seenItem) return;
+    setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
+    // This like completes a match: confirm it now rather than waiting for the
+    // shared list to round-trip. App adds the title and de-duplicates.
+    if (liked && partnerSwipes[swipeKey(current.mediaType, current.tmdbId)] === "like") onMatch?.(current);
+    dismissCurrent(liked ? "right" : "left");
+  }
+
+  async function saveSeenIt(data) {
+    const item = seenItem;
+    await onSeenIt(item, data);
+    setSwipe(me, item.mediaType, item.tmdbId, "seen").catch(() => { /* the list entry already keeps it out of Discover */ });
+    setSeenItem(null);
+    if (current && current.tmdbId === item.tmdbId && current.mediaType === item.mediaType) dismissCurrent("up");
   }
 
   // One gesture handler for both swipe and tap: a press that barely moves is
@@ -262,6 +281,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
       if (e.target.closest?.("input, textarea, select, [role=dialog]")) return;
       if (e.key === "ArrowRight") commitSwipe(true);
       else if (e.key === "ArrowLeft") commitSwipe(false);
+      else if (e.key === "ArrowUp" && current && !exiting) { e.preventDefault(); setSeenItem(current); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -399,7 +419,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
                     <button className="back-flip" onClick={() => setFlipped(false)} tabIndex={flipped ? 0 : -1}>
                       <RotateCcw size={14} aria-hidden="true" /> Back to poster
                     </button>
-                    <MediaDetails item={current} settings={settings} householdServices={householdServices} />
+                    <MediaDetails item={current} settings={settings} people={people} />
                   </div>
                 </div>
               </div>
@@ -410,10 +430,22 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
 
       {current && (
         <div className="swipe-actions">
-          <button className="swipe-btn swipe-btn-pass" onClick={() => commitSwipe(false)} aria-label={`Pass on ${current.title}`}><X size={24} aria-hidden="true" /></button>
-          <button className="swipe-btn swipe-btn-like" onClick={() => commitSwipe(true)} aria-label={`Like ${current.title}`}><Heart size={24} aria-hidden="true" /></button>
+          <button className="swipe-action swipe-action-pass" onClick={() => commitSwipe(false)} aria-label={`Not interested in ${current.title}`}>
+            <span className="swipe-btn"><X size={26} aria-hidden="true" /></span>
+            <span className="swipe-label" aria-hidden="true">Pass</span>
+          </button>
+          <button className="swipe-action swipe-action-seen" onClick={() => setSeenItem(current)} aria-haspopup="dialog" aria-label={`I've already seen ${current.title}`}>
+            <span className="swipe-btn"><Eye size={22} aria-hidden="true" /></span>
+            <span className="swipe-label" aria-hidden="true">Seen it</span>
+          </button>
+          <button className="swipe-action swipe-action-like" onClick={() => commitSwipe(true)} aria-label={`Want to watch ${current.title}`}>
+            <span className="swipe-btn"><Heart size={26} aria-hidden="true" /></span>
+            <span className="swipe-label" aria-hidden="true">Want it</span>
+          </button>
         </div>
       )}
+
+      {seenItem && <SeenItSheet item={seenItem} partner={partner} onSave={saveSeenIt} onClose={() => setSeenItem(null)} />}
     </div>
   );
 }

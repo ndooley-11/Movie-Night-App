@@ -161,6 +161,17 @@ export async function fetchFullDetails(mediaType, id, apiKey, region) {
     trailerUrl: pickTrailer(d.videos) || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${year} trailer`)}`,
     hasOfficialTrailer: !!pickTrailer(d.videos),
     streaming: (providers.flatrate || []).map((p) => p.provider_name),
+    watch: watchOptions(providers),
+  };
+}
+
+function watchOptions(r) {
+  const entry = (p) => ({ name: p.provider_name, logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null });
+  return {
+    link: r.link || null,
+    flatrate: (r.flatrate || []).map(entry),
+    free: [...(r.free || []), ...(r.ads || [])].map(entry),
+    rent: [...(r.rent || []), ...(r.buy || [])].map(entry),
   };
 }
 

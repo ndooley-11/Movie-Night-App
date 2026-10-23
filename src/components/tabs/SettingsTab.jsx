@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Copy, LogOut, Repeat } from "lucide-react";
-
-const SERVICES = ["Netflix", "Hulu", "Max", "Disney+", "Prime Video", "Apple TV+", "Paramount+", "Peacock"];
+import { SERVICES } from "../../lib/streaming.js";
 const REGIONS = [["US", "United States"], ["CA", "Canada"], ["GB", "United Kingdom"], ["AU", "Australia"]];
 const CONTENT_TYPES = [["movies", "Movies"], ["shows", "Shows"], ["both", "Both"]];
 
