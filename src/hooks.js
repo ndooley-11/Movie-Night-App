@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, runTransaction, FieldPath } from "firebase/firestore";
 import { db } from "./firebase.js";
+import { renamedRoom } from './lib/players.js';
+import { tonightChoice, moviePatch } from './lib/roomUpdates.js';
 
 export const DEFAULT_SETTINGS = {
   names: ["Player 1", "Player 2"],
@@ -22,6 +24,7 @@ export function useRoom(roomCode) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [movies, setMovies] = useState([]);
   const [swipes, setSwipes] = useState({});
+  const [tonight, setTonight] = useState(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
@@ -36,6 +39,7 @@ export function useRoom(roomCode) {
         setSettings({ ...DEFAULT_SETTINGS, ...(data.settings || {}) });
         setMovies(data.movies || []);
         setSwipes(data.swipes || {});
+        setTonight(data.tonight || null);
         setReady(true);
       },
       (err) => setError(err.message)
@@ -44,21 +48,48 @@ export function useRoom(roomCode) {
   }, [roomCode]);
 
   const saveSettings = useCallback(async (next) => {
-    setSettings(next);
-    await setDoc(doc(db, "movienight", roomCode), { settings: next }, { merge: true });
+    const ref = doc(db, 'movienight', roomCode);
+    await runTransaction(db, async transaction => {
+      const snap = await transaction.get(ref);
+      const patch = renamedRoom(snap.data() || {}, next);
+      if (snap.exists()) transaction.update(ref, patch);
+      else transaction.set(ref, patch);
+    });
   }, [roomCode]);
 
   const saveMovies = useCallback(async (next) => {
-    setMovies(next);
-    await setDoc(doc(db, "movienight", roomCode), { movies: next }, { merge: true });
+    const ref = doc(db, "movienight", roomCode);
+    // Compute against the server's latest array on every retry. Two devices
+    // updating different reviews/progress must not overwrite one another.
+    await runTransaction(db, async transaction => {
+      const snap = await transaction.get(ref);
+      const current = snap.data()?.movies || [];
+      const movies = typeof next === 'function' ? next(current) : next;
+      transaction.set(ref, moviePatch(snap.data() || {}, movies), { merge: true });
+    });
   }, [roomCode]);
 
   const setSwipe = useCallback(async (name, mediaType, tmdbId, value) => {
     const key = swipeKey(mediaType, tmdbId);
-    await updateDoc(doc(db, "movienight", roomCode), { [`swipes.${name}.${key}`]: value });
+    await updateDoc(doc(db, "movienight", roomCode), new FieldPath('swipes', name, key), value);
   }, [roomCode]);
 
-  return { settings, movies, swipes, saveSettings, saveMovies, setSwipe, ready, error };
+  const chooseTonight = useCallback(async (movieId, playerIndex) => {
+    const ref = doc(db, 'movienight', roomCode);
+    await runTransaction(db, async transaction => {
+      const snap = await transaction.get(ref);
+      transaction.update(ref, { tonight: tonightChoice(snap.data()?.movies || [], movieId, playerIndex) });
+    });
+  }, [roomCode]);
+  const clearTonight = useCallback(async movieId => {
+    const ref = doc(db, 'movienight', roomCode);
+    await runTransaction(db, async transaction => {
+      const snap = await transaction.get(ref);
+      if (snap.data()?.tonight?.movieId === movieId) transaction.update(ref, { tonight: null });
+    });
+  }, [roomCode]);
+
+  return { settings, movies, swipes, tonight, saveSettings, saveMovies, setSwipe, chooseTonight, clearTonight, ready, error };
 }
 
 export function usePersonal(key, fallback) {

@@ -1,5 +1,53 @@
 # Movie Night — setup guide
 
+## Local feature preview and checks
+
+Run `npm install`, `npm test`, and `npm run build`. For an interactive local
+preview, run `npm run dev` and open
+`http://localhost:5173/Movie-Night-App/design/feature-preview.html`.
+This development-only page uses sample data in local storage, never Firebase.
+It supports switching between the two sample viewers and simulating a save
+failure. The normal production entry point does not include this fixture.
+
+Normal tests skip the optional live Firebase check. In PowerShell, run
+`$env:MOVIENIGHT_LIVE_TEST="1"; node --test tests/room-sync.test.js` to test
+simultaneous writes from two clients and live snapshots. It creates a unique
+disposable room and deletes that room afterwards.
+
+The Pick tab now previews eligible titles in a poster fan, with filters in a
+collapsed accessible sheet and a brief, reduced-motion-aware winner reveal.
+Choose for tonight saves a shared choice without changing watched history.
+After watching, mark the movie watched together or start episode tracking.
+
+Watched includes optional personal reviews (up to 5,000 characters), spoiler
+hiding, and separate Watching / Finished views with compact cards. Start a show from Watching's list
+or from a Pick result. Progress means the **latest completed episode**. Each
+viewer edits their own position; regular episodes are counted across seasons.
+Specials are separate. Unknown/incomplete metadata never produces a guessed
+gap, and known unreleased episodes cannot be selected. Complete a show
+separately for each viewer; it enters completed history once both finish.
+Use “Resume watching together” in a finished card's menu when a new season arrives.
+Progress changes and deleted reviews offer Undo, guarded against overwriting a newer edit.
+
+New `reviews.p0/p1` and `showProgress.p0/p1` fields use stable player slots,
+so changing names does not orphan this new data. Renaming also atomically migrates
+existing ratings, seen status, likes, hype, and streaming preferences. Existing titles, ratings,
+history and room fields remain compatible. Updates to the movie array now
+use Firestore transactions to preserve concurrent changes by both devices.
+Do not run older app versions concurrently when testing these changes:
+older clients still replace the entire array and can overwrite newer fields.
+
+**Identity limitation:** this app has no authenticated user accounts. The
+selected player determines which review/progress controls can be edited,
+but a room participant can switch identities. This is not server-enforced
+ownership or strong room privacy. The sample Firestore rules below permit
+unauthenticated reads and writes to the collection, including listing rooms;
+knowing a room code is not an access-control boundary. Reviews are not
+published in a public feed, but do not treat the storage as secure private
+notes. No authentication or deployed Firestore rules were changed by these
+features. Server-enforced ownership would require a separate sign-in and
+rules change.
+
 This turns the app into a real website at `https://yourname.github.io/movie-night/`
 that works for both of you with no Claude account needed. Total time: ~15 minutes.
 

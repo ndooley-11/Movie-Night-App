@@ -4,6 +4,8 @@ import { useRoom, usePersonal, swipeKey } from "./hooks.js";
 import { fetchGenreMap, fetchProviders, fetchDetails, normalizeResult } from "./lib/api.js";
 import { normalizeRoomCode } from "./lib/room.js";
 import { seenByOf } from "./lib/seen.js";
+import { withReview, withProgress, allFinishedTogether } from './lib/personalMedia.js';
+import { samePosition } from './lib/players.js';
 import RoomGate from "./components/RoomGate.jsx";
 import { TabBtn, Stars, Toast, BrandMark } from "./components/shared.jsx";
 import { DetailsSheet } from "./components/MediaDetails.jsx";
@@ -34,7 +36,7 @@ export default function App() {
   const [meIdx, saveMeIdx] = usePersonal(normalizedRoom ? `mn-me:${normalizedRoom}` : "mn-me:none", null);
   const [pendingNames, setPendingNames] = useState(null);
 
-  const { settings, movies, swipes, saveSettings, saveMovies, setSwipe, ready, error } = useRoom(normalizedRoom);
+  const { settings, movies, swipes, tonight, saveSettings, saveMovies, setSwipe, chooseTonight, clearTonight, ready, error } = useRoom(normalizedRoom);
   const [showPassed, setShowPassed] = usePersonal("mn-show-passed", false);
   const [language, setLanguage] = usePersonal("mn-language", "any");
   const [tab, setTab] = useState("discover");
@@ -106,32 +108,34 @@ export default function App() {
       overview: item.overview || "",
       addedBy: me, addedAt: Date.now(), watched: false, watchedAt: null, seenBy: {}, ratings: {}, hype: {}, providers,
     };
-    await saveMovies([movie, ...movies]);
+    await saveMovies(current => [movie, ...current]);
   }
 
   async function removeMovie(id) {
     const index = movies.findIndex((m) => m.id === id);
     const removed = movies[index];
     if (!removed) return;
-    await saveMovies(movies.filter((m) => m.id !== id));
+    await saveMovies(current => current.filter((m) => m.id !== id));
     showToast(`Removed "${removed.title}"`, {
       label: "Undo",
       onClick: () => {
-        const latest = moviesRef.current.filter((m) => m.id !== id);
-        saveMovies([...latest.slice(0, index), removed, ...latest.slice(index)]);
+        saveMovies(current => {
+          const latest = current.filter(m => m.id !== id);
+          return [...latest.slice(0, index), removed, ...latest.slice(index)];
+        }).catch(() => showToast('Could not undo. Please try again.'));
         setToast(null);
       },
     });
   }
 
   async function toggleHype(id) {
-    await saveMovies(movies.map((m) => m.id === id ? { ...m, hype: { ...m.hype, [me]: !m.hype?.[me] } } : m));
+    await saveMovies(current => current.map((m) => m.id === id ? { ...m, hype: { ...m.hype, [me]: !m.hype?.[me] } } : m));
   }
 
   // who: "both" | "me"
   async function markSeen(id, who) {
     const now = Date.now();
-    await saveMovies(movies.map((m) => {
+    await saveMovies(current => current.map((m) => {
       if (m.id !== id) return m;
       const seenBy = { ...seenByOf(m, names) };
       (who === "both" ? names : [me]).forEach((n) => { if (!seenBy[n]) seenBy[n] = now; });
@@ -142,12 +146,47 @@ export default function App() {
   }
 
   async function markUnseen(id) {
-    await saveMovies(movies.map((m) => m.id === id ? { ...m, seenBy: {}, watched: false, watchedAt: null } : m));
+    await saveMovies(current => current.map((m) => m.id === id ? { ...m, seenBy: {}, watched: false, watchedAt: null, watchingTogether: false } : m));
     showToast("Moved back to your list");
   }
 
   async function setRating(id, val) {
-    await saveMovies(movies.map((m) => m.id === id ? { ...m, ratings: { ...m.ratings, [me]: val } } : m));
+    await saveMovies(current => current.map((m) => m.id === id ? { ...m, ratings: { ...m.ratings, [me]: val } } : m));
+  }
+
+  async function updatePersonalMovie(id, update) {
+    await saveMovies(current => {
+      if (!current.some(m => m.id === id)) throw new Error('This title was removed from the room.');
+      return current.map(m => m.id === id ? update(m) : m);
+    });
+  }
+
+  async function saveReview(id, review, options = {}) {
+    await updatePersonalMovie(id, m => {
+      if (options.onlyIfAbsent && m.reviews?.[`p${meIdx}`]) throw new Error('A newer review exists. Open it to make changes.');
+      if (review && !seenByOf(m, names)[me]) throw new Error('Mark this title seen before writing a review.');
+      return withReview(m, meIdx, review);
+    });
+  }
+
+  async function startShow(id) {
+    await updatePersonalMovie(id, m => {
+      if (m.mediaType !== 'tv') throw new Error('Choose a show to track.');
+      const own = m.showProgress?.[`p${meIdx}`];
+      return { ...m, watchingTogether: true, watched: false, watchedAt: null,
+        ...(own?.completed ? { showProgress: { ...m.showProgress, [`p${meIdx}`]: { ...own, completed: false } } } : {}) };
+    });
+    showToast('Show added to Watching together');
+  }
+
+  async function saveProgress(id, position, options = {}) {
+    await updatePersonalMovie(id, m => {
+      if ('expectedPosition' in options && !samePosition(m.showProgress?.[`p${meIdx}`], options.expectedPosition)) throw new Error('Your progress changed elsewhere. Refresh your position before undoing.');
+      const next = withProgress(m, meIdx, position);
+      const finished = allFinishedTogether(next, names.length);
+      return { ...next, watchingTogether: true, watched: finished, watchedAt: finished ? m.watchedAt || Date.now() : null,
+        ...(finished ? { seenBy: Object.fromEntries(names.map(n => [n, seenByOf(m, names)[n] || Date.now()])) } : {}) };
+    });
   }
 
   // Watch for mutual likes across both players' swipe history and promote them
@@ -184,7 +223,7 @@ export default function App() {
           // Check the latest list, not the snapshot from before the network calls above.
           const latest = moviesRef.current;
           const already = latest.some((m) => m.id === movie.id || ((m.mediaType || "movie") === mediaType && String(m.tmdbId) === String(tmdbId)));
-          if (!already) await saveMovies([movie, ...latest]);
+          if (!already) await saveMovies(current => current.some(m => m.id === movie.id || ((m.mediaType || 'movie') === mediaType && String(m.tmdbId) === String(tmdbId))) ? current : [movie, ...current]);
         } catch (e) {
           addingRef.current.delete(key); // let the next swipe update retry it
         }
@@ -260,7 +299,7 @@ export default function App() {
         </button>
       )}
 
-      <main className={"content" + (tab === "discover" ? " content-fill" : "")}>
+      <main className={"content" + (tab === "discover" ? " content-fill" : tab === 'pick' ? ' content-pick' : "")}>
         {tab === "suggest" && (
           <SuggestTab settings={settings} genreMap={genreMap} movies={movies} me={me} haveIt={haveIt} toggleHype={toggleHype} onMarkSeen={setSeenPrompt} removeMovie={removeMovie} addItem={addItem} showToast={showToast} openDetails={setDetailsItem} />
         )}
@@ -268,10 +307,10 @@ export default function App() {
           <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} householdServices={householdServices} onMatch={(item) => celebrate(swipeKey(item.mediaType, item.tmdbId), item)} />
         )}
         {tab === "pick" && (
-          <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} contentType={settings.contentType} onWatchNow={(id) => markSeen(id, "both")} openDetails={setDetailsItem} />
+          <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} contentType={settings.contentType} tonight={tonight} onChooseTonight={id => chooseTonight(id, meIdx)} onClearTonight={clearTonight} onFinishTonight={async id => { if (movies.find(m => m.id === id)?.mediaType === 'tv') await startShow(id); else await markSeen(id, 'both'); await clearTonight(id); }} openDetails={setDetailsItem} />
         )}
         {tab === "watched" && (
-          <WatchedTab movies={movies} me={me} partner={partner} names={names} setRating={setRating} markSeen={markSeen} markUnseen={markUnseen} openDetails={setDetailsItem} />
+          <WatchedTab movies={movies} me={me} partner={partner} names={names} meIdx={meIdx} settings={settings} roomCode={normalizedRoom} saveReview={saveReview} saveProgress={saveProgress} startShow={startShow} setRating={setRating} markSeen={markSeen} markUnseen={markUnseen} openDetails={setDetailsItem} />
         )}
         {tab === "stats" && <StatsTab movies={movies} names={names} me={me} partner={partner} />}
         {tab === "settings" && (

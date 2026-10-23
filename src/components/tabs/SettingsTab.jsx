@@ -7,11 +7,18 @@ const CONTENT_TYPES = [["movies", "Movies"], ["shows", "Shows"], ["both", "Both"
 
 export default function SettingsTab({ settings, saveSettings, me, showToast, roomCode, onLeaveRoom, meIdx, saveMeIdx }) {
   const [local, setLocal] = useState(settings);
+  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState('');
   useEffect(() => setLocal(settings), [settings]);
   const dirty = JSON.stringify(local) !== JSON.stringify(settings);
 
   function update(patch) { setLocal({ ...local, ...patch }); }
-  async function save() { await saveSettings(local); showToast("Settings saved"); }
+  async function save() {
+    if (saving) return;
+    setSaving(true); setSaveError('');
+    try { await saveSettings(local); showToast('Settings saved'); }
+    catch (e) { setSaveError(e.message || 'Could not save settings. Please try again.'); }
+    finally { setSaving(false); }
+  }
 
   function toggleService(name, svc) {
     const list = local.services[name] || [];
@@ -99,11 +106,12 @@ export default function SettingsTab({ settings, saveSettings, me, showToast, roo
         <div className="savebar" role="region" aria-label="Unsaved changes">
           <span>Unsaved changes</span>
           <div className="savebar-actions">
-            <button className="btn btn-outline btn-sm" onClick={() => setLocal(settings)}>Discard</button>
-            <button className="btn btn-primary btn-sm" onClick={save}>Save</button>
+            <button className="btn btn-outline btn-sm" disabled={saving} onClick={() => setLocal(settings)}>Discard</button>
+            <button className="btn btn-primary btn-sm" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       )}
+      {saveError && <p className="feature-error" role="alert">{saveError}</p>}
     </div>
   );
 }

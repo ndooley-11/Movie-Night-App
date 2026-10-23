@@ -168,3 +168,22 @@ export async function fetchGenreList(mediaType, apiKey) {
   const d = await tmdb(FIELDS[mediaType].genrePath, apiKey);
   return d.genres || [];
 }
+
+// Do not persist episode synopses or expose future episode names in the UI.
+export async function fetchShowEpisodes(id, apiKey) {
+  const show = await tmdb(`/tv/${id}`, apiKey);
+  const seasons = (show.seasons || []).filter(s => s.episode_count > 0);
+  const episodes = [];
+  let complete = true;
+  // Bound parallel requests for shows with a long run.
+  for (let i = 0; i < seasons.length; i += 6) {
+    const batch = await Promise.allSettled(seasons.slice(i, i + 6).map(s => tmdb(`/tv/${id}/season/${s.season_number}`, apiKey)));
+    batch.forEach((result, offset) => {
+      if (result.status !== 'fulfilled') { if (seasons[i + offset].season_number > 0) complete = false; return; }
+      const season = result.value;
+      if (season.season_number > 0 && (season.episodes || []).length !== seasons[i + offset].episode_count) complete = false;
+      episodes.push(...(season.episodes || []).map(e => ({ season: season.season_number, episode: e.episode_number, name: e.name || '', airDate: e.air_date || null })));
+    });
+  }
+  return { episodes, complete, status: show.status, seasons: seasons.map(s => ({ number: s.season_number, count: s.episode_count })) };
+}

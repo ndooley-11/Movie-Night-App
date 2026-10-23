@@ -1,109 +1,93 @@
-import { useState, useRef, useEffect } from "react";
-import { Shuffle, ThumbsDown, Film, Info } from "lucide-react";
-import { mediaTypesForFilter } from "../../lib/api.js";
-import { Switch } from "../shared.jsx";
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Shuffle, ThumbsDown, Film, Info, SlidersHorizontal, ChevronDown, Check } from 'lucide-react';
+import { Switch, PosterThumb } from '../shared.jsx';
+import ActionSheet from '../ActionSheet.jsx';
+import { eligibleTitles, chooseTitle, fanTitles } from '../../lib/picking.js';
 
-const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function Poster({ movie, className = '' }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [movie?.poster]);
+  return movie?.poster && !failed ? <img src={movie.poster} alt={movie.title} className={className} onError={() => setFailed(true)} />
+    : <div className={`poster-fallback ${className}`}><Film size={28} aria-hidden="true" /><span>{movie?.title || 'Your next favorite'}</span></div>;
+}
 
-export default function PickTab({ movies, me, partner, allGenres, contentType, onWatchNow, openDetails }) {
-  const [selectedGenres, setSelectedGenres] = useState([]);
-  const [unwatchedOnly, setUnwatchedOnly] = useState(true);
-  const [spinning, setSpinning] = useState(false);
-  const [display, setDisplay] = useState(null);
-  const [result, setResult] = useState(null);
-  const [vetoed, setVetoed] = useState([]);
-  const [vetoUsed, setVetoUsed] = useState({});
-  const intervalRef = useRef(null);
-  const revealRef = useRef(null);
+export default function PickTab({ movies, me, partner, allGenres, contentType, tonight, onChooseTonight, onClearTonight, onFinishTonight, openDetails }) {
+  const [filters, setFilters] = useState({ genres: [], unwatchedOnly: true });
+  const [draft, setDraft] = useState(filters), [filterOpen, setFilterOpen] = useState(false);
+  const [spinning, setSpinning] = useState(false), [display, setDisplay] = useState(null), [result, setResult] = useState(null);
+  const [vetoed, setVetoed] = useState([]), [vetoUsed, setVetoUsed] = useState({});
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const interval = useRef(null), rolling = useRef(false), latest = useRef(null);
+  const closeFilters = useCallback(() => setFilterOpen(false), []);
+  const pool = eligibleTitles(movies, { contentType, ...filters, vetoed });
+  latest.current = { movies, filters, contentType };
+  const visibleResult = result && pool.find(m => m.id === result.id);
+  const preview = fanTitles(pool);
+  const tonightMovie = tonight && movies.find(m => m.id === tonight.movieId);
+  const choiceCard = useRef(null);
+  useEffect(() => { if (tonightMovie) choiceCard.current?.scrollIntoView({ block: 'start', behavior: 'instant' }); }, [tonightMovie?.id]);
+  const cancelRoll = useCallback(() => { clearInterval(interval.current); rolling.current = false; setSpinning(false); }, []);
+  useEffect(() => () => clearInterval(interval.current), []);
+  useEffect(() => { cancelRoll(); setDisplay(null); setResult(null); setVetoed([]); setVetoUsed({}); }, [contentType, cancelRoll]);
 
-  // The reveal card renders below the button, which on shorter phones is
-  // off-screen — bring it into view so a roll never looks like it did nothing.
-  // Runs again when the result lands, since the veto/watch buttons that
-  // appear then make the card taller.
-  const hasDisplay = !!display;
-  useEffect(() => {
-    if (hasDisplay) revealRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [hasDisplay, result]);
-
-  useEffect(() => () => clearInterval(intervalRef.current), []);
-
-  const enabledTypes = mediaTypesForFilter(contentType);
-
-  const pool = movies.filter((m) => {
-    if (!enabledTypes.includes(m.mediaType || "movie")) return false;
-    if (unwatchedOnly && m.watched) return false;
-    if (selectedGenres.length && !selectedGenres.some((g) => (m.genreNames || []).includes(g))) return false;
-    if (vetoed.includes(m.id)) return false;
-    return true;
-  });
-
-  function toggleGenre(g) { setSelectedGenres((s) => s.includes(g) ? s.filter((x) => x !== g) : [...s, g]); }
-
-  function spin() {
-    if (pool.length === 0) return;
-    setResult(null);
-    setSpinning(true);
-    let count = 0;
-    const rolls = prefersReducedMotion() ? 0 : 14;
-    clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setDisplay(pool[Math.floor(Math.random() * pool.length)]);
-      count++;
-      if (count > rolls) {
-        clearInterval(intervalRef.current);
-        const chosen = pool[Math.floor(Math.random() * pool.length)];
-        setDisplay(chosen);
-        setResult(chosen);
-        setSpinning(false);
-      }
-    }, 90);
+  function spin(excluded = vetoed) {
+    if (rolling.current) return;
+    const currentPool = () => eligibleTitles(latest.current.movies, { contentType: latest.current.contentType, ...latest.current.filters, vetoed: excluded });
+    if (!currentPool().length) { setResult(null); setDisplay(null); return; }
+    setError(''); setResult(null); rolling.current = true; setSpinning(true);
+    function reveal() { const chosen = chooseTitle(currentPool()); cancelRoll(); setDisplay(chosen); setResult(chosen); }
+    if (reducedMotion()) { reveal(); return; }
+    let ticks = 0;
+    interval.current = setInterval(() => { if (++ticks >= 13) reveal(); else setDisplay(chooseTitle(currentPool())); }, 95);
   }
-
-  function newSession() { setVetoed([]); setVetoUsed({}); setResult(null); setDisplay(null); }
-
   function veto(name) {
-    if (vetoUsed[name] || !result) return;
-    setVetoUsed((v) => ({ ...v, [name]: true }));
-    setVetoed((v) => [...v, result.id]);
-    setTimeout(spin, 100);
+    if (rolling.current || vetoUsed[name] || !visibleResult) return;
+    const excluded = [...vetoed, visibleResult.id];
+    setVetoed(excluded); setVetoUsed(v => ({ ...v, [name]: true }));
+    spin(excluded); // Do not reselect the vetoed title through stale state.
   }
-
-  return (
-    <div>
-      <h2 className="section-title">What are you in the mood for?</h2>
-      {allGenres.length === 0
-        ? <p className="hint">Add a few titles to your list first, then come back to pick one.</p>
-        : (
-          <div className="chip-row" role="group" aria-label="Genres">
-            {allGenres.map((g) => (<button key={g} className={"chip" + (selectedGenres.includes(g) ? " active" : "")} aria-pressed={selectedGenres.includes(g)} onClick={() => toggleGenre(g)}>{g}</button>))}
-          </div>
-        )}
-      <div className="toggle-row">
-        <Switch checked={unwatchedOnly} onChange={setUnwatchedOnly} label="Skip anything you've already watched" />
-      </div>
-
-      <button className="btn btn-primary btn-lg spin-btn" onClick={() => { newSession(); spin(); }} disabled={pool.length === 0 || spinning}>
-        <Shuffle size={18} aria-hidden="true" /> {spinning ? "Rolling…" : "Pick for us"}
-      </button>
-      <p className="hint pool-count" aria-live="polite">{pool.length} title{pool.length !== 1 ? "s" : ""} in the running</p>
-
-      {display && (
-        <div ref={revealRef} className={"reveal-card" + (spinning ? " spinning" : "")} aria-live="polite" aria-busy={spinning}>
-          {display.poster ? <img src={display.poster} alt="" className="reveal-poster" /> : <div className="reveal-poster poster-fallback"><Film size={28} aria-hidden="true" /></div>}
-          <div className="reveal-title">{display.title}</div>
-          <p className="meta-row">{[display.year, (display.mediaType || "movie") === "tv" ? "Show" : "Movie", ...(display.genreNames || []).slice(0, 2)].filter(Boolean).join(" · ")}</p>
-          {!spinning && result && (
-            <>
-              <button className="link-btn center" onClick={() => openDetails(result)}><Info size={14} aria-hidden="true" /> More info</button>
-              <div className="veto-row">
-                <button className="btn btn-outline" disabled={vetoUsed[me]} onClick={() => veto(me)}><ThumbsDown size={15} aria-hidden="true" /> {vetoUsed[me] ? "Veto used" : "Your veto"}</button>
-                <button className="btn btn-outline" disabled={vetoUsed[partner]} onClick={() => veto(partner)}><ThumbsDown size={15} aria-hidden="true" /> {vetoUsed[partner] ? "Veto used" : `${partner}'s veto`}</button>
-              </div>
-              <button className="btn btn-primary" onClick={() => onWatchNow(result.id)}>We're watching this</button>
-            </>
-          )}
-        </div>
-      )}
+  function applyFilters() { cancelRoll(); setFilters(draft); setResult(null); setDisplay(null); setVetoed([]); setVetoUsed({}); closeFilters(); }
+  async function watch() {
+    if (busy || !visibleResult) return;
+    setBusy(true); setError('');
+    try { await onChooseTonight(visibleResult.id); setResult(null); setDisplay(null); }
+    catch { setError('Could not save that choice. Please try again.'); }
+    finally { setBusy(false); }
+  }
+  async function changeTonight(action) {
+    if (busy || !tonightMovie) return;
+    setBusy(true); setError('');
+    try { await action(tonightMovie.id); } catch (e) { setError(e.message || 'Could not update tonight’s choice.'); }
+    finally { setBusy(false); }
+  }
+  return <section className="pick-page">
+    {tonightMovie && <aside ref={choiceCard} className="tonight-choice"><p className="pick-eyebrow">Tonight’s choice · shared with {partner}</p><button className="media-row-main" onClick={() => openDetails(tonightMovie)}><PosterThumb poster={tonightMovie.poster} /><span className="media-row-title">{tonightMovie.title}</span></button><p className="hint">{tonightMovie.mediaType === 'tv' ? 'Ready to start? Track each person’s episodes in Watching.' : 'Saved for tonight. Mark it watched after you’ve seen it.'}</p><div className="feature-actions"><button className="btn btn-outline" disabled={busy} onClick={() => changeTonight(onFinishTonight)}>{tonightMovie.mediaType === 'tv' ? 'Start episode tracking' : 'Mark watched together'}</button><button className="link-btn" disabled={busy} onClick={() => changeTonight(onClearTonight)}>Clear choice</button></div></aside>}
+    <div className="pick-stage">
+      <header className="pick-heading"><p className="pick-eyebrow">{me} + {partner}</p><h2>Let’s make it a movie night.</h2><p>Your shortlist. One great pick.</p></header>
+      {visibleResult && !spinning ? <div className="pick-winner" role="status">
+        <p className="pick-eyebrow">Tonight’s pick</p><Poster movie={visibleResult} className="pick-winner-poster" /><h3>{visibleResult.title}</h3>
+        <p className="meta-row">{[visibleResult.year, visibleResult.mediaType === 'tv' ? 'Show' : 'Movie', ...(visibleResult.genreNames || []).slice(0, 2)].filter(Boolean).join(' · ')}</p>
+        <button className="link-btn center" onClick={() => openDetails(visibleResult)}><Info size={15} /> More info</button>
+      </div> : <div className={'poster-fan' + (spinning ? ' is-shuffling' : '')} aria-label={pool.length ? 'Candidate posters; center poster is not a selection' : 'No eligible titles'} aria-busy={spinning}>
+        {preview.length ? preview.map((m, i) => { const offset = i - (preview.length - 1) / 2; return <div key={m.id} className="fan-card" style={{ '--fan-offset': offset, '--fan-depth': Math.abs(offset), zIndex: Math.round(10 - Math.abs(offset)) }}><Poster movie={spinning && i === Math.floor(preview.length / 2) && display ? display : m} className="fan-poster" /></div>; })
+          : <div className="pick-empty"><Film size={44} aria-hidden="true" /><h3>{movies.length ? 'A different mood?' : 'Start your shortlist'}</h3><p>{movies.length ? 'No titles match. Refine your pick to see more options.' : 'Add titles in Suggest or match in Discover, then come back here.'}</p></div>}
+      </div>}
+      <p className="hint pool-count" role="status">{spinning ? 'Shuffling your shortlist…' : `${pool.length} title${pool.length === 1 ? '' : 's'} in the running`}</p>
+      {visibleResult && !spinning && <button className="btn btn-primary pick-main-action" onClick={watch} disabled={busy}><Check size={22} />{busy ? 'Saving…' : 'Choose for tonight'}</button>}
+      <button className={'btn pick-main-action ' + (visibleResult ? 'btn-outline' : 'btn-primary')} onClick={() => spin()} disabled={!pool.length || spinning || busy}><Shuffle size={24} aria-hidden="true" />{spinning ? 'Picking…' : visibleResult ? 'Pick again' : 'Pick for us'}</button>
+      {!visibleResult && <p className="hint pick-helper">We’ll choose from your shared list.</p>}
+      {visibleResult && !spinning && <div className="veto-row"><button className="btn btn-outline" disabled={vetoUsed[me] || busy} onClick={() => veto(me)}><ThumbsDown size={15} />{vetoUsed[me] ? 'Veto used' : 'Your veto'}</button><button className="btn btn-outline" disabled={vetoUsed[partner] || busy} onClick={() => veto(partner)}><ThumbsDown size={15} />{vetoUsed[partner] ? 'Veto used' : `${partner}’s veto`}</button></div>}
+      {!pool.length && vetoed.length > 0 && <button className="link-btn center" onClick={() => { setVetoed([]); setVetoUsed({}); }}>Reset vetoes</button>}
+      {error && <p className="feature-error" role="alert">{error}</p>}
     </div>
-  );
+    <div className="pick-refine"><button className="link-btn" onClick={() => { setDraft({ ...filters, genres: [...filters.genres] }); setFilterOpen(true); }} disabled={spinning || busy} aria-haspopup="dialog"><SlidersHorizontal size={18} /> Refine your pick <ChevronDown size={16} /></button><p className="hint">{filters.genres.length ? filters.genres.join(', ') : 'Any genre'} · {filters.unwatchedOnly ? 'Unwatched only' : 'Including watched'}</p></div>
+    {filterOpen && <ActionSheet title="Refine your pick" onClose={closeFilters}>
+      <p className="hint">Choose any matching genre. Changes apply when you’re ready.</p>
+      <div className="chip-row" role="group" aria-label="Pick genres">{allGenres.map(g => <button key={g} className={'chip' + (draft.genres.includes(g) ? ' active' : '')} aria-pressed={draft.genres.includes(g)} onClick={() => setDraft(d => ({ ...d, genres: d.genres.includes(g) ? d.genres.filter(x => x !== g) : [...d.genres, g] }))}>{g}</button>)}</div>
+      <div className="toggle-row"><Switch checked={draft.unwatchedOnly} onChange={v => setDraft(d => ({ ...d, unwatchedOnly: v }))} label="Unwatched only" /></div>
+      <p className="hint" role="status">{eligibleTitles(movies, { contentType, ...draft }).length} matching titles</p>
+      <div className="feature-actions"><button className="btn btn-outline" onClick={() => setDraft({ genres: [], unwatchedOnly: true })}>Reset filters</button><button className="btn btn-primary" onClick={applyFilters}>Apply filters</button></div>
+    </ActionSheet>}
+  </section>;
 }
