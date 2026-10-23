@@ -993,3 +993,16 @@ label.field-label .input { width: 100%; color: var(--text); }
 @keyframes cta-float { to { transform: translate(-50%, calc(-50% - 4px)); } }
 .pick-again { margin-top: 10px; min-height: 48px; }
 @media (prefers-reduced-motion: reduce) { .fan-cta { animation: none; } .fan-button { transition: none; } }
+
+/* ---- Home-screen fit ----
+   iOS 26 home-screen apps (26.1, and again 26.5+) report 100dvh and
+   innerHeight short of the screen by the status-bar height (812 vs 874pt on
+   a 16 Pro), leaving a strip under the tab bar (WebKit bug 301994). A
+   home-screen app has no browser toolbars, so 100lvh is the true screen
+   height on every iOS version. Overlays are anchored to the shell instead of
+   the (equally short) fixed-position viewport for the same reason. */
+.standalone, .standalone body { height: 100vh; height: 100lvh; }
+.standalone body { position: relative; }
+.standalone .app, .standalone .gate { height: 100vh; height: 100lvh; }
+.standalone .sheet-overlay, .standalone .modal-overlay { position: absolute; }
+.standalone .sheet { max-height: calc(100lvh - 40px - env(safe-area-inset-top)); }
