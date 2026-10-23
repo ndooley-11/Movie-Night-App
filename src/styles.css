@@ -934,10 +934,11 @@ label.field-label .input { width: 100%; color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .is-shuffling .fan-card { animation: none; } .fan-card { transition: none; } }
 
 /* Shared watch library: compact history, clear next action. */
-.watch-tabs{display:flex;gap:5px;padding:5px;background:var(--surface);border:1px solid var(--border);border-radius:15px;margin-bottom:26px}
-.watch-tabs button{flex:1;min-height:46px;border:0;border-radius:11px;background:transparent;color:var(--text-muted);font:inherit;font-weight:700;cursor:pointer}
-.watch-tabs button.active{background:var(--accent);color:var(--bg)}
-.watch-tabs button span{margin-left:7px;font-size:12px;opacity:.75}
+.watch-tabs{display:flex;gap:24px;width:fit-content;max-width:100%;margin-bottom:26px;border-bottom:1px solid var(--border-strong)}
+.watch-tabs button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.watch-tabs button:hover{color:var(--text)}
+.watch-tabs button.active{border-bottom-color:var(--accent);color:var(--text)}
+.watch-tabs button span{font-size:12px;font-weight:400;color:var(--text-muted)}
 .watch-intro{margin-top:-3px;margin-bottom:22px}
 .finished-card{padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:18px}
 .finished-heading{display:flex;align-items:flex-start;gap:8px}.finished-heading .media-row-main{flex:1;min-width:0}.finished-heading .icon-btn{flex-shrink:0;min-width:44px;min-height:44px}
