@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Shuffle, ThumbsDown, Film } from "lucide-react";
 import { mediaTypesForFilter } from "../../lib/api.js";
 import { MediaTypeTag } from "../shared.jsx";
@@ -12,6 +12,18 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, m
   const [vetoed, setVetoed] = useState([]);
   const [vetoUsed, setVetoUsed] = useState({});
   const intervalRef = useRef(null);
+  const revealRef = useRef(null);
+
+  // The reveal card renders below the button, which on shorter phones is
+  // off-screen — bring it into view so a roll never looks like it did nothing.
+  // Runs again when the result lands, since the veto/watch buttons that
+  // appear then make the card taller.
+  const hasDisplay = !!display;
+  useEffect(() => {
+    if (hasDisplay) revealRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [hasDisplay, result]);
+
+  useEffect(() => () => clearInterval(intervalRef.current), []);
 
   const enabledTypes = mediaTypesForFilter(contentType);
 
@@ -70,7 +82,7 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, m
       </button>
 
       {display && (
-        <div className={"reveal-card" + (spinning ? " spinning" : "")}>
+        <div ref={revealRef} className={"reveal-card" + (spinning ? " spinning" : "")}>
           {display.poster ? <img src={display.poster} alt="" className="reveal-poster" /> : <div className="poster-fallback big"><Film size={28} /></div>}
           <div className="reveal-title">{display.title} <MediaTypeTag mediaType={display.mediaType || "movie"} /></div>
           <div className="tag-row" style={{ justifyContent: "center" }}>{(display.genreNames || []).slice(0, 3).map((g) => <span key={g} className="genre-tag">{g}</span>)}</div>

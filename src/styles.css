@@ -18,16 +18,25 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); }
+html, body { margin: 0; background: var(--bg); height: 100%; overflow: hidden; }
 body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 
+/* A fixed-height flex column with ONE scrollable pane (.content) — not a
+   tall page that scrolls as a whole. Mobile browsers (iOS Safari especially)
+   can let a tall document's `position: fixed` bottom bar drift out of sync
+   with the visual viewport as the address bar hides/shows on scroll, which
+   let page content peek out past it. Making the outer app non-scrolling
+   sidesteps that entirely. */
 .app {
   color: var(--text);
   background: var(--bg);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
-  padding-bottom: 82px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   position: relative;
 }
 
@@ -37,7 +46,8 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
   align-items: center;
   justify-content: center;
   gap: 14px;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   color: var(--text-muted);
   text-align: center;
   padding: 24px;
@@ -49,7 +59,8 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 
 /* ---- room gate ---- */
 .gate {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -80,6 +91,7 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 
 /* ---- top bar ---- */
 .topbar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -113,6 +125,7 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 .header-icon-btn.active { color: var(--accent); border-color: var(--accent); }
 
 .banner {
+  flex-shrink: 0;
   background: var(--surface-2);
   color: var(--accent);
   font-size: 12.5px;
@@ -122,7 +135,7 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
   border-bottom: 1px solid var(--border);
 }
 
-.content { padding: 18px; }
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px; }
 
 .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin: 26px 0 10px; }
 .section-title:first-child { margin-top: 0; }
@@ -254,8 +267,8 @@ body { font-family: "Inter", system-ui, -apple-system, sans-serif; }
 .install-tip { margin-top: 28px; font-size: 12px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); }
 
 /* ---- toast / nav / modal ---- */
-.toast { position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--on-accent); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 20; max-width: 90%; text-align: center; }
-.tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; display: flex; align-items: center; background: var(--surface); border-top: 1px solid var(--border); padding: 6px 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); overflow: visible; }
+.toast { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--on-accent); padding: 10px 20px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 20; max-width: 90%; text-align: center; }
+.tabbar { position: relative; flex-shrink: 0; width: 100%; display: flex; align-items: center; background: var(--surface); border-top: 1px solid var(--border); padding: 6px 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); overflow: visible; }
 .tab { flex: 1; background: none; border: none; color: var(--text-faint); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0; font-size: 10px; font-weight: 600; cursor: pointer; }
 .tab.active { color: var(--accent); }
 .tabbar-spacer { width: 62px; flex-shrink: 0; }
