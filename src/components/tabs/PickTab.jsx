@@ -25,6 +25,7 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, t
   const visibleResult = result && pool.find(m => m.id === result.id);
   const preview = fanTitles(pool);
   const tonightMovie = tonight && movies.find(m => m.id === tonight.movieId);
+  const resultChosen = !!visibleResult && tonightMovie?.id === visibleResult.id;
   const choiceCard = useRef(null);
   useEffect(() => { if (tonightMovie) choiceCard.current?.scrollIntoView({ block: 'start', behavior: 'instant' }); }, [tonightMovie?.id]);
   const cancelRoll = useCallback(() => { clearInterval(interval.current); rolling.current = false; setSpinning(false); }, []);
@@ -49,9 +50,9 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, t
   }
   function applyFilters() { cancelRoll(); setFilters(draft); setResult(null); setDisplay(null); setVetoed([]); setVetoUsed({}); closeFilters(); }
   async function watch() {
-    if (busy || !visibleResult) return;
+    if (busy || !visibleResult || resultChosen) return;
     setBusy(true); setError('');
-    try { await onChooseTonight(visibleResult.id); setResult(null); setDisplay(null); }
+    try { await onChooseTonight(visibleResult.id); }
     catch { setError('Could not save that choice. Please try again.'); }
     finally { setBusy(false); }
   }
@@ -62,13 +63,19 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, t
     finally { setBusy(false); }
   }
   return <section className="pick-page">
-    {tonightMovie && <aside ref={choiceCard} className="tonight-choice"><p className="pick-eyebrow">Tonight’s choice · shared with {partner}</p><button className="media-row-main" onClick={() => openDetails(tonightMovie)}><PosterThumb poster={tonightMovie.poster} /><span className="media-row-title">{tonightMovie.title}</span></button><p className="hint">{tonightMovie.mediaType === 'tv' ? 'Ready to start? Track each person’s episodes in Watching.' : 'Saved for tonight. Mark it watched after you’ve seen it.'}</p><div className="feature-actions"><button className="btn btn-outline" disabled={busy} onClick={() => changeTonight(onFinishTonight)}>{tonightMovie.mediaType === 'tv' ? 'Start episode tracking' : 'Mark watched together'}</button><button className="link-btn" disabled={busy} onClick={() => changeTonight(onClearTonight)}>Clear choice</button></div></aside>}
+    {tonightMovie && !resultChosen && <aside ref={choiceCard} className="tonight-choice"><p className="pick-eyebrow">Tonight’s choice · shared with {partner}</p><button className="media-row-main" onClick={() => openDetails(tonightMovie)}><PosterThumb poster={tonightMovie.poster} /><span className="media-row-title">{tonightMovie.title}</span></button><p className="hint">{tonightMovie.mediaType === 'tv' ? 'Ready to start? Track each person’s episodes in Watching.' : 'Saved for tonight. Mark it watched after you’ve seen it.'}</p><div className="feature-actions"><button className="btn btn-outline" disabled={busy} onClick={() => changeTonight(onFinishTonight)}>{tonightMovie.mediaType === 'tv' ? 'Start episode tracking' : 'Mark watched together'}</button><button className="link-btn" disabled={busy} onClick={() => changeTonight(onClearTonight)}>Clear choice</button></div></aside>}
     <div className={'pick-stage' + (visibleResult && !spinning ? ' has-result' : '')}>
       {!(visibleResult && !spinning) && <header className="pick-heading"><p className="pick-eyebrow">{me} + {partner}</p><h2>Let’s make it a movie night.</h2><p>Your shortlist. One great pick.</p></header>}
-      {visibleResult && !spinning ? <div className="pick-winner" role="status">
-        <p className="pick-eyebrow">Tonight’s pick</p><Poster movie={visibleResult} className="pick-winner-poster" /><h3>{visibleResult.title}</h3>
+      {visibleResult && !spinning ? <div className="pick-winner">
+        <p className="pick-eyebrow">{resultChosen ? 'Tonight’s choice' : 'Tonight’s pick'}</p>
+        <button type="button" className={'pick-poster-choice' + (resultChosen ? ' is-chosen' : '')} onClick={watch} disabled={busy} aria-busy={busy} aria-pressed={resultChosen} aria-label={resultChosen ? `${visibleResult.title} chosen for tonight` : `Choose ${visibleResult.title} for tonight`}>
+          <Poster movie={visibleResult} className="pick-winner-poster" />
+          <span className="pick-poster-cue" aria-hidden="true"><Check size={15} /><span>{busy ? 'Saving…' : resultChosen ? 'Chosen for tonight' : 'Tap to choose for tonight'}</span></span>
+        </button>
+        <h3>{visibleResult.title}</h3>
         <p className="meta-row">{[visibleResult.year, visibleResult.mediaType === 'tv' ? 'Show' : 'Movie', ...(visibleResult.genreNames || []).slice(0, 2)].filter(Boolean).join(' · ')}</p>
-        <p className="pick-result-caption">A little less deciding. A little more watching.</p>
+        <p className="pick-result-caption" role="status">{resultChosen ? `Shared with ${partner} · ${visibleResult.mediaType === 'tv' ? 'ready to start tracking.' : 'not marked watched.'}` : 'A little less deciding. A little more watching.'}</p>
+        {resultChosen && <div className="pick-chosen-tools"><button className="link-btn" disabled={busy} onClick={() => changeTonight(onClearTonight)}>Undo choice</button><button className="link-btn" disabled={busy} onClick={() => changeTonight(onFinishTonight)}>{visibleResult.mediaType === 'tv' ? 'Start episode tracking' : 'Mark watched together'}</button></div>}
       </div> : preview.length ? (
         // The fan itself is the control: tap the cards to pick.
         <button type="button" className={'poster-fan fan-button' + (spinning ? ' is-shuffling' : '')} onClick={() => spin()} disabled={spinning || busy} aria-busy={spinning}
@@ -81,12 +88,11 @@ export default function PickTab({ movies, me, partner, allGenres, contentType, t
         </div>}
       <p className="hint pool-count" role="status">{spinning ? 'Shuffling your shortlist…' : `${pool.length} title${pool.length === 1 ? '' : 's'} in the running`}</p>
       {visibleResult && !spinning && <div className="pick-result-actions">
-        <button className="pick-confirm" onClick={watch} disabled={busy}><Check size={17} aria-hidden="true" />{busy ? 'Saving…' : 'Choose for tonight'}</button>
-        <button className="pick-round" onClick={() => spin()} disabled={!pool.length || busy} aria-label="Pick again" title="Pick again"><Shuffle size={18} aria-hidden="true" /></button>
-        <button className="pick-round" onClick={() => openDetails(visibleResult)} aria-label={`More info about ${visibleResult.title}`} title="More info"><Info size={18} aria-hidden="true" /></button>
+        <button className="link-btn" onClick={() => spin()} disabled={!pool.length || busy}><Shuffle size={17} aria-hidden="true" />Pick again</button>
+        <button className="link-btn" onClick={() => openDetails(visibleResult)} aria-label={`More info about ${visibleResult.title}`}><Info size={17} aria-hidden="true" />Details</button>
       </div>}
       {!visibleResult && !!pool.length && <p className="hint pick-helper">We’ll choose from your shared list.</p>}
-      {visibleResult && !spinning && <details className="pick-vetoes"><summary>Not feeling this one? <ChevronDown size={14} aria-hidden="true" /></summary><p className="hint">One veto each. We’ll pick something else.</p><div className="veto-row"><button className="btn btn-outline" disabled={vetoUsed[me] || busy} onClick={() => veto(me)}><ThumbsDown size={15} aria-hidden="true" />{vetoUsed[me] ? 'Veto used' : 'Your veto'}</button><button className="btn btn-outline" disabled={vetoUsed[partner] || busy} onClick={() => veto(partner)}><ThumbsDown size={15} aria-hidden="true" />{vetoUsed[partner] ? 'Veto used' : `${partner}’s veto`}</button></div></details>}
+      {visibleResult && !spinning && !resultChosen && <details className="pick-vetoes"><summary>Not feeling this one? <ChevronDown size={14} aria-hidden="true" /></summary><p className="hint">One veto each. We’ll pick something else.</p><div className="veto-row"><button className="btn btn-outline" disabled={vetoUsed[me] || busy} onClick={() => veto(me)}><ThumbsDown size={15} aria-hidden="true" />{vetoUsed[me] ? 'Veto used' : 'Your veto'}</button><button className="btn btn-outline" disabled={vetoUsed[partner] || busy} onClick={() => veto(partner)}><ThumbsDown size={15} aria-hidden="true" />{vetoUsed[partner] ? 'Veto used' : `${partner}’s veto`}</button></div></details>}
       {!pool.length && vetoed.length > 0 && <button className="link-btn center" onClick={() => { setVetoed([]); setVetoUsed({}); }}>Reset vetoes</button>}
       {error && <p className="feature-error" role="alert">{error}</p>}
     </div>
