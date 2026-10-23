@@ -1,0 +1,241 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Icon lab</title>
+<style>
+  body { margin: 0; background: #1a1a20; font-family: -apple-system, system-ui, sans-serif; color: #ddd; padding: 20px; }
+  .row { display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 26px; }
+  figure { margin: 0; text-align: center; font-size: 12px; }
+  canvas.big { width: 300px; height: 300px; border-radius: 67px; }
+  .home { background: linear-gradient(160deg, #2b3a55, #121826 60%, #0b0d14); padding: 22px; border-radius: 18px; display: flex; gap: 22px; }
+  .home figure canvas { width: 62px; height: 62px; border-radius: 14px; }
+  .home figcaption { margin-top: 5px; color: #fff; font-size: 11px; }
+</style></head>
+<body>
+<div class="row" id="big"></div>
+<div class="row"><div class="home" id="home"></div></div>
+<script>
+const S = 1024;
+const TAU = Math.PI * 2;
+
+function squirclePath(ctx, cx, cy, r, n = 5, steps = 720) {
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * TAU, c = Math.cos(t), s = Math.sin(t);
+    const x = cx + r * Math.sign(c) * Math.abs(c) ** (2 / n);
+    const y = cy + r * Math.sign(s) * Math.abs(s) ** (2 / n);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function canvas() { const c = document.createElement('canvas'); c.width = c.height = S; return c; }
+
+// Colour fringe that only shows around two opposite corners (top-right, bottom-left),
+// like light refracting through the thick edge of a glass tile.
+function cornerMask(ctx, color, alpha, spread = 0.11) {
+  const g = ctx.createConicGradient(0, S / 2, S / 2);
+  const corners = [0.875, 0.375];
+  const stops = [];
+  corners.forEach((c) => {
+    stops.push([c - spread, 0], [c - spread * 0.35, alpha], [c + spread * 0.35, alpha], [c + spread, 0]);
+  });
+  stops.sort((a, b) => a[0] - b[0]);
+  g.addColorStop(0, `rgba(${color},0)`);
+  stops.forEach(([p, a]) => g.addColorStop(Math.min(1, Math.max(0, p)), `rgba(${color},${a})`));
+  g.addColorStop(1, `rgba(${color},0)`);
+  return g;
+}
+
+function tint(src, fill) {
+  const c = canvas(), x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = fill;
+  x.fillRect(0, 0, S, S);
+  return c;
+}
+
+function stripes(x, y0, y1, xStart, xEnd, width, gap, skew) {
+  for (let sx = xStart; sx < xEnd; sx += width + gap) {
+    x.beginPath();
+    x.moveTo(sx, y1); x.lineTo(sx + width, y1); x.lineTo(sx + width + skew, y0); x.lineTo(sx + skew, y0);
+    x.closePath(); x.fill();
+  }
+}
+
+function roundRect(x, X, Y, W, H, R) { x.beginPath(); x.roundRect(X, Y, W, H, R); }
+
+function glyphClapper() {
+  const c = canvas(), x = c.getContext('2d');
+  x.fillStyle = '#fff';
+  // board body
+  roundRect(x, 268, 470, 488, 320, 46); x.fill();
+  // fixed striped band at the top of the body, split from the body by a gap
+  x.globalCompositeOperation = 'destination-out';
+  x.fillRect(250, 566, 520, 20);
+  x.save(); x.beginPath(); x.rect(268, 470, 488, 96); x.clip();
+  stripes(x, 470, 566, 300, 760, 46, 64, 48);
+  x.restore();
+  x.globalCompositeOperation = 'source-over';
+  // hinged clapper arm, tilted open
+  x.save();
+  x.translate(278, 446); x.rotate(-0.30);
+  roundRect(x, 0, -96, 492, 96, 30); x.fill();
+  x.globalCompositeOperation = 'destination-out';
+  x.beginPath(); x.rect(0, -96, 492, 96); x.clip();
+  stripes(x, -96, 0, 34, 520, 46, 64, 48);
+  x.restore();
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+// Fit any glyph into the same optical box so both options sit at the same size.
+function fitGlyph(src, box = 0.6) {
+  const d = src.getContext('2d').getImageData(0, 0, S, S).data;
+  let minX = S, minY = S, maxX = 0, maxY = 0;
+  for (let y = 0; y < S; y += 2) for (let xx = 0; xx < S; xx += 2) {
+    if (d[(y * S + xx) * 4 + 3] > 20) { if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  const w = maxX - minX, h = maxY - minY, k = (S * box) / Math.max(w, h);
+  const c = canvas(), x = c.getContext('2d');
+  x.drawImage(src, minX, minY, w, h, S / 2 - (w * k) / 2, S / 2 - (h * k) / 2 + S * 0.01, w * k, h * k);
+  return c;
+}
+
+function maskTo(src, mx, my, r) {
+  const c = canvas(), x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = 'destination-in';
+  const g = x.createRadialGradient(mx, my, 0, mx, my, r);
+  g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.55, 'rgba(0,0,0,0.75)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  return c;
+}
+
+function glyphPopcorn() {
+  const c = canvas(), x = c.getContext('2d');
+  x.fillStyle = '#fff';
+  // popcorn puffs
+  const puffs = [[330, 470, 62], [400, 402, 72], [494, 366, 80], [592, 386, 76], [676, 452, 66], [452, 470, 60], [560, 466, 62], [508, 432, 50]];
+  puffs.forEach(([px, py, r]) => { x.beginPath(); x.arc(px, py, r, 0, TAU); x.fill(); });
+  // gap above the rim
+  x.globalCompositeOperation = 'destination-out';
+  x.fillRect(240, 498, 544, 24);
+  x.globalCompositeOperation = 'source-over';
+  // rim
+  roundRect(x, 262, 516, 500, 62, 24); x.fill();
+  // tapered bucket
+  x.beginPath();
+  x.moveTo(296, 600); x.lineTo(728, 600); x.lineTo(676, 820); x.quadraticCurveTo(672, 838, 654, 838);
+  x.lineTo(370, 838); x.quadraticCurveTo(352, 838, 348, 820); x.closePath(); x.fill();
+  // gap between rim and bucket, and the vertical stripe cuts
+  x.globalCompositeOperation = 'destination-out';
+  x.fillRect(240, 578, 544, 22);
+  [[418, 600, 432, 838], [512, 600, 512, 838], [606, 600, 592, 838]].forEach(([x0, y0, x1, y1]) => {
+    x.beginPath(); x.moveTo(x0 - 13, y0); x.lineTo(x0 + 13, y0); x.lineTo(x1 + 11, y1); x.lineTo(x1 - 11, y1); x.closePath(); x.fill();
+  });
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+function renderIcon(rawGlyph) {
+  const glyph = fitGlyph(rawGlyph);
+  const c = canvas(), x = c.getContext('2d');
+  const cx = S / 2, cy = S / 2;
+  const BL = [S * 0.1, S * 0.9], TR = [S * 0.9, S * 0.1];
+
+  // outer bezel: the thick glass rim, lit slightly from above
+  const rim = x.createLinearGradient(0, 0, 0, S);
+  rim.addColorStop(0, '#2a2a33'); rim.addColorStop(0.5, '#141419'); rim.addColorStop(1, '#0c0c10');
+  x.fillStyle = rim; x.fillRect(0, 0, S, S);
+
+  // inner face, a step down into the glass
+  const face0 = x.createRadialGradient(cx, cy * 0.8, 30, cx, cy, S * 0.55);
+  face0.addColorStop(0, '#1b1b22'); face0.addColorStop(1, '#050507');
+  x.save(); x.filter = 'blur(6px)';
+  squirclePath(x, cx, cy, S * 0.418); x.fillStyle = face0; x.fill();
+  x.restore();
+  // lip where bezel meets face
+  x.save();
+  squirclePath(x, cx, cy, S * 0.42); x.lineWidth = 2.5;
+  const lip = x.createLinearGradient(0, S * 0.1, 0, S * 0.9);
+  lip.addColorStop(0, 'rgba(255,255,255,0.28)'); lip.addColorStop(1, 'rgba(255,255,255,0.05)');
+  x.strokeStyle = lip; x.stroke();
+  squirclePath(x, cx, cy, S * 0.482); x.lineWidth = 3; x.strokeStyle = 'rgba(255,255,255,0.12)'; x.stroke();
+  x.restore();
+
+  // light pooling into the glass near the two refracting corners
+  x.save(); x.globalCompositeOperation = 'lighter';
+  [[BL, '45,110,255', 0.42], [TR, '255,70,160', 0.34]].forEach(([[px, py], col, a]) => {
+    const g = x.createRadialGradient(px, py, 0, px, py, S * 0.42);
+    g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+  });
+  x.restore();
+
+  // chromatic dispersion along the rim at those corners: warm outside, cool inside
+  const fringes = [
+    ['255,122,82', 1, S * 0.468, S * 0.03, 7],
+    ['255,50,170', 1, S * 0.452, S * 0.034, 8],
+    ['60,80,255', 1, S * 0.434, S * 0.036, 9],
+    ['30,200,255', 0.95, S * 0.416, S * 0.028, 10],
+  ];
+  x.save(); x.globalCompositeOperation = 'lighter';
+  fringes.forEach(([col, a, r, w, blur]) => {
+    x.filter = `blur(${blur * 2.4}px)`;
+    squirclePath(x, cx, cy, r); x.lineWidth = w * 1.25; x.strokeStyle = cornerMask(x, col, a * 0.42, 0.14); x.stroke();
+    x.filter = `blur(${blur * 0.6}px)`;
+    squirclePath(x, cx, cy, r); x.lineWidth = w * 0.55; x.strokeStyle = cornerMask(x, col, a * 0.9, 0.1); x.stroke();
+  });
+  x.filter = 'blur(3px)';
+  squirclePath(x, cx, cy, S * 0.444); x.lineWidth = S * 0.008; x.strokeStyle = cornerMask(x, '255,255,255', 0.55, 0.06); x.stroke();
+  x.restore();
+
+  // glyph: soft glow first
+  x.save(); x.filter = 'blur(40px)'; x.globalAlpha = 0.3; x.drawImage(tint(glyph, '#cfd6ff'), 0, 0); x.restore();
+  // colour only bleeds onto the glyph on the sides facing the refracting corners
+  x.save(); x.globalCompositeOperation = 'lighter';
+  x.filter = 'blur(9px)';
+  x.drawImage(maskTo(tint(glyph, '#2f63ff'), BL[0], BL[1], S * 0.62), -16, 12);
+  x.drawImage(maskTo(tint(glyph, '#16c8ff'), BL[0], BL[1], S * 0.5), -8, 6);
+  x.drawImage(maskTo(tint(glyph, '#ff3a9a'), TR[0], TR[1], S * 0.62), 15, -12);
+  x.restore();
+  const face = x.createLinearGradient(0, S * 0.2, 0, S * 0.8);
+  face.addColorStop(0, '#ffffff'); face.addColorStop(1, '#eef0f8');
+  x.drawImage(tint(glyph, face), 0, 0);
+
+  // faint specular sweep across the top of the glass
+  const spec = x.createLinearGradient(0, 0, 0, S * 0.4);
+  spec.addColorStop(0, 'rgba(255,255,255,0.10)'); spec.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = spec; x.fillRect(0, 0, S, S * 0.4);
+  return c;
+}
+
+const icons = { popcorn: renderIcon(glyphPopcorn()), clapper: renderIcon(glyphClapper()) };
+
+// ?only=<name>&size=<px>: draw just that icon, full-bleed, for a headless screenshot export.
+const params = new URLSearchParams(location.search);
+if (params.get('only')) {
+  const size = Number(params.get('size') || 1024);
+  document.body.innerHTML = '';
+  document.body.style.cssText = 'margin:0;padding:0;background:#000;overflow:hidden';
+  const out = document.createElement('canvas');
+  out.width = out.height = size;
+  out.style.cssText = `display:block;width:${size}px;height:${size}px`;
+  const ox = out.getContext('2d');
+  ox.imageSmoothingQuality = 'high';
+  ox.drawImage(icons[params.get('only')], 0, 0, size, size);
+  document.body.append(out);
+  throw new Error('export mode');
+}
+
+const big = document.getElementById('big'), home = document.getElementById('home');
+Object.entries(icons).forEach(([name, c]) => {
+  const f = document.createElement('figure'), v = document.createElement('canvas');
+  v.width = v.height = S; v.className = 'big'; v.getContext('2d').drawImage(c, 0, 0);
+  f.append(v, Object.assign(document.createElement('figcaption'), { textContent: name })); big.append(f);
+  const h = document.createElement('figure'), hv = document.createElement('canvas');
+  hv.width = hv.height = 180; hv.getContext('2d').drawImage(c, 0, 0, 180, 180);
+  h.append(hv, Object.assign(document.createElement('figcaption'), { textContent: 'Movie Night' })); home.append(h);
+});
+</script>
+</body></html>
