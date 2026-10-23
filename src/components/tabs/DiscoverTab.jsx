@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Heart, X, Film, Info, SlidersHorizontal, ChevronUp, RotateCcw } from "lucide-react";
 import { mediaTypesForFilter, fetchDetails, normalizeResult } from "../../lib/api.js";
-import { fetchDiscoverBatch, emptyPageState } from "../../lib/discoverFeed.js";
+import { createMixer, refillPools, drawCards, isDrained } from "../../lib/discoverFeed.js";
 import { swipeKey } from "../../hooks.js";
 import { Switch } from "../shared.jsx";
 import MediaDetails, { useDetails, useOmdb, Score, formatRuntime } from "../MediaDetails.jsx";
 
+const QUEUE_TARGET = 16;
+const REFILL_AT = 6;
 const LANGUAGES = [["any", "Any"], ["en", "English"], ["non-en", "Non-English"]];
 const CONTENT_TYPES = [["movies", "Movies"], ["shows", "Shows"], ["both", "Both"]];
 
@@ -58,7 +60,7 @@ function CardFront({ item, settings, flipped = false, partnerPick, onInfo, dragX
   );
 }
 
-export default function DiscoverTab({ settings, saveSettings, genreMap, movies, me, partner, swipes, setSwipe, showPassed, setShowPassed, language, setLanguage, householdServices }) {
+export default function DiscoverTab({ settings, saveSettings, genreMap, movies, me, partner, swipes, setSwipe, showPassed, setShowPassed, language, setLanguage, householdServices, onMatch }) {
   const [mode, setMode] = useState("discover");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [genreFilter, setGenreFilter] = useState(null);
@@ -71,7 +73,12 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
   const [exiting, setExiting] = useState(null);
   const [flipped, setFlipped] = useState(false);
   const gesture = useRef(null);
-  const pageStateRef = useRef(emptyPageState());
+  const mixerRef = useRef(createMixer());
+  const genRef = useRef(0);
+  const busyRef = useRef(false);
+  const retriesRef = useRef(0);
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
   const detailCacheRef = useRef(new Map());
   const fetchedRef = useRef(new Set());
 
@@ -98,27 +105,58 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
     .filter(([key, v]) => v === "like" && !mySwipes[key] && !onList(key))
     .map(([key]) => key);
 
-  const loadMore = useCallback(async (reset) => {
-    if (!settings.apiKey || loading) return;
+  // A filter change starts a new generation with a fresh mixer; anything still
+  // in flight from the old generation is dropped when it lands.
+  async function loadMore(reset) {
+    if (!settings.apiKey) return;
+    if (reset) {
+      genRef.current++;
+      mixerRef.current = createMixer();
+      busyRef.current = false;
+      retriesRef.current = 0;
+    }
+    if (busyRef.current) return;
+    const gen = genRef.current;
+    const mixer = mixerRef.current;
+    busyRef.current = true;
     setLoading(true);
     try {
-      if (reset) pageStateRef.current = emptyPageState();
-      const { items, pageState } = await fetchDiscoverBatch({
+      const inQueue = new Set((reset ? [] : queueRef.current).map((it) => `${it.mediaType}:${it.tmdbId}`));
+      const isExcluded = (k) => excludeKeys.has(k) || inQueue.has(k);
+      const opts = {
         apiKey: settings.apiKey,
         traktClientId: settings.traktClientId,
         mediaTypes: enabledTypes,
         language,
+        genreFilter,
         genreMap,
-        pageState: pageStateRef.current,
-        excludeKeys,
+        isExcluded,
         detailCache: detailCacheRef.current,
-      });
-      pageStateRef.current = pageState;
-      const filtered = genreFilter ? items.filter((it) => (it.genreNames || []).includes(genreFilter)) : items;
-      setQueue((q) => (reset ? filtered : [...q, ...filtered]));
-    } catch (e) { /* network hiccup — the stack just won't refill this round */ }
-    setLoading(false);
-  }, [settings.apiKey, settings.traktClientId, contentType, language, genreFilter, loading, genreMap, excludeKeys, enabledTypes]);
+      };
+      const want = Math.max(0, QUEUE_TARGET - (reset ? 0 : queueRef.current.length));
+      const drawn = [];
+      // Titles already swiped are skipped while refilling, so heavy users page
+      // past them; keep going a few rounds until the deck is topped up.
+      for (let round = 0; round < 12 && drawn.length < want && !isDrained(mixer, enabledTypes); round++) {
+        await refillPools(mixer, opts);
+        if (gen !== genRef.current) return;
+        drawn.push(...drawCards(mixer, want - drawn.length, isExcluded, enabledTypes));
+      }
+      setQueue((q) => (reset ? drawn : [...q, ...drawn]));
+      // Came back short but there's more out there (slow network, narrow
+      // filters): try again shortly instead of showing an empty deck.
+      if (drawn.length > 0) retriesRef.current = 0;
+      if (drawn.length < want && !isDrained(mixer, enabledTypes) && retriesRef.current < 3) {
+        retriesRef.current++;
+        setTimeout(() => { if (gen === genRef.current) loadMoreRef.current(false); }, 1500 * retriesRef.current);
+      }
+    } catch (e) { /* network hiccup: the retry above or the next swipe picks it up */ }
+    finally {
+      if (gen === genRef.current) { busyRef.current = false; setLoading(false); }
+    }
+  }
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
   useEffect(() => {
     setQueue([]);
@@ -127,8 +165,10 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genreFilter, language, settings.apiKey, contentType, showPassed, mode]);
 
+  // Rolling refresh: top the deck back up whenever it gets down to its last
+  // few cards, so a fresh batch lands roughly every 10 swipes.
   useEffect(() => {
-    if (mode === "discover" && queue.length <= 3 && !loading && settings.apiKey) loadMore(false);
+    if (mode === "discover" && queue.length <= REFILL_AT && !busyRef.current && settings.apiKey) loadMore(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue.length, mode]);
 
@@ -169,6 +209,9 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
     if (!current || exiting) return;
     setExiting(liked ? "right" : "left");
     setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
+    // This like completes a match: confirm it now rather than waiting for the
+    // shared list to round-trip. App adds the title and de-duplicates.
+    if (liked && partnerSwipes[swipeKey(current.mediaType, current.tmdbId)] === "like") onMatch?.(current);
     setTimeout(() => {
       if (mode === "discover") setQueue((q) => q.slice(1));
       else setTheirQueue((q) => q.slice(1));

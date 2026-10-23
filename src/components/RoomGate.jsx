@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Clapperboard, Users, ArrowRight } from "lucide-react";
+import { Users, ArrowRight } from "lucide-react";
+import { BrandMark } from "./shared.jsx";
 import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from "../lib/room.js";
 
 export default function RoomGate({ onJoin, onCreate }) {
@@ -29,7 +30,7 @@ export default function RoomGate({ onJoin, onCreate }) {
   return (
     <div className="gate">
       <div className="gate-card">
-        <div className="gate-brand"><Clapperboard size={26} /><span>Movie Night</span></div>
+        <div className="gate-brand"><BrandMark size={30} /><span>Movie Night</span></div>
         <p className="gate-sub">A shared watchlist for two. Pick a room to get started.</p>
 
         <div className="segmented">

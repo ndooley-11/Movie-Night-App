@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Clapperboard, Plus, Flame, Shuffle, Eye, Award, Settings as SettingsIcon, Users, User } from "lucide-react";
-import { useRoom, usePersonal } from "./hooks.js";
+import { Plus, Flame, Shuffle, Eye, Award, Settings as SettingsIcon, Users, User } from "lucide-react";
+import { useRoom, usePersonal, swipeKey } from "./hooks.js";
 import { fetchGenreMap, fetchProviders, fetchDetails, normalizeResult } from "./lib/api.js";
 import { normalizeRoomCode } from "./lib/room.js";
 import { seenByOf } from "./lib/seen.js";
 import RoomGate from "./components/RoomGate.jsx";
-import { TabBtn, Stars, Toast } from "./components/shared.jsx";
+import { TabBtn, Stars, Toast, BrandMark } from "./components/shared.jsx";
 import { DetailsSheet } from "./components/MediaDetails.jsx";
+import MatchCelebration from "./components/MatchCelebration.jsx";
 import SuggestTab from "./components/tabs/SuggestTab.jsx";
 import DiscoverTab from "./components/tabs/DiscoverTab.jsx";
 import PickTab from "./components/tabs/PickTab.jsx";
@@ -15,6 +16,17 @@ import StatsTab from "./components/tabs/StatsTab.jsx";
 import SettingsTab from "./components/tabs/SettingsTab.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+// A match added by the partner's phone is celebrated here only if it is fresh;
+// opening the app later shouldn't replay old matches.
+const CELEBRATE_WINDOW_MS = 2 * 60 * 1000;
+
+function loadCelebrated(room) {
+  try { return new Set(JSON.parse(localStorage.getItem(`mn-celebrated:${room}`) || "[]")); } catch (e) { return new Set(); }
+}
+function saveCelebrated(room, set) {
+  try { localStorage.setItem(`mn-celebrated:${room}`, JSON.stringify([...set].slice(-200))); } catch (e) { /* in-memory is fine */ }
+}
 
 export default function App() {
   const [roomCode, setRoomCode] = usePersonal("mn-room", null);
@@ -31,10 +43,26 @@ export default function App() {
   const [rateModal, setRateModal] = useState(null);
   const [seenPrompt, setSeenPrompt] = useState(null);
   const [detailsItem, setDetailsItem] = useState(null);
+  const [celebration, setCelebration] = useState(null);
   const addingRef = useRef(new Set());
   const toastTimer = useRef(null);
   const moviesRef = useRef(movies);
   moviesRef.current = movies;
+  const celebratedRef = useRef({ room: null, keys: new Set() });
+
+  // Shows "You both picked this" at most once per match on this device, even
+  // across refreshes and reconnects.
+  const celebrate = useCallback((key, item) => {
+    if (!normalizedRoom) return;
+    if (celebratedRef.current.room !== normalizedRoom) {
+      celebratedRef.current = { room: normalizedRoom, keys: loadCelebrated(normalizedRoom) };
+    }
+    const { keys } = celebratedRef.current;
+    if (keys.has(key)) return;
+    keys.add(key);
+    saveCelebrated(normalizedRoom, keys);
+    setCelebration({ key, title: item.title, poster: item.poster || null });
+  }, [normalizedRoom]);
 
   const showToast = useCallback((message, action) => {
     clearTimeout(toastTimer.current);
@@ -145,21 +173,35 @@ export default function App() {
           const normalized = normalizeResult(mediaType, d, genreMap);
           const providers = await fetchProviders(mediaType, tmdbId, settings.apiKey, settings.region);
           const movie = {
-            id: uid(), tmdbId: normalized.tmdbId, mediaType, title: normalized.title, year: normalized.year,
+            // Fixed id per title, so both phones writing the same match collapse to one entry
+            id: `match-${key.replace(":", "-")}`,
+            tmdbId: normalized.tmdbId, mediaType, title: normalized.title, year: normalized.year,
             poster: normalized.poster, genreNames: normalized.genreNames, originalLanguage: normalized.originalLanguage,
             overview: normalized.overview,
             addedBy: `${names[0]} + ${names[1]}`, addedAt: Date.now(),
             watched: false, watchedAt: null, seenBy: {}, ratings: {}, hype: {}, providers,
           };
-          if (!movies.some((m) => (m.mediaType || "movie") === mediaType && String(m.tmdbId) === String(tmdbId))) {
-            await saveMovies([movie, ...movies]);
-            showToast(`It's a match! "${normalized.title}" is on your list`);
-          }
-        } catch (e) { /* if TMDB hiccups we'll just retry on the next swipe update */ }
+          // Check the latest list, not the snapshot from before the network calls above.
+          const latest = moviesRef.current;
+          const already = latest.some((m) => m.id === movie.id || ((m.mediaType || "movie") === mediaType && String(m.tmdbId) === String(tmdbId)));
+          if (!already) await saveMovies([movie, ...latest]);
+        } catch (e) {
+          addingRef.current.delete(key); // let the next swipe update retry it
+        }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swipes, movies, me, partner, settings.apiKey, ready]);
+
+  // Your partner's phone (or this one) added a fresh match: celebrate it here too.
+  useEffect(() => {
+    if (!ready) return;
+    const now = Date.now();
+    movies.forEach((m) => {
+      if (!(m.addedBy || "").includes(" + ") || !m.addedAt || now - m.addedAt > CELEBRATE_WINDOW_MS) return;
+      celebrate(swipeKey(m.mediaType || "movie", m.tmdbId), m);
+    });
+  }, [movies, ready, celebrate]);
 
   const allGenres = Array.from(new Set(movies.flatMap((m) => m.genreNames || []))).sort();
   const householdServices = Array.from(new Set([...(settings.services[me] || []), ...(settings.services[partner] || [])]));
@@ -178,16 +220,16 @@ export default function App() {
   }
 
   if (error) {
-    return <div className="app boot"><Clapperboard size={28} /><p>Couldn't connect: {error}</p><p className="hint">Check your Firebase config and Firestore rules.</p></div>;
+    return <div className="app boot"><BrandMark size={32} /><p>Couldn't connect: {error}</p><p className="hint">Check your Firebase config and Firestore rules.</p></div>;
   }
   if (!ready) {
-    return <div className="app boot"><Clapperboard size={28} /><p>Setting the scene…</p></div>;
+    return <div className="app boot"><BrandMark size={32} /><p>Setting the scene…</p></div>;
   }
 
   if (meIdx === null || meIdx === undefined) {
     return (
       <div className="app boot">
-        <Clapperboard size={28} />
+        <BrandMark size={32} />
         <p>Which one of you is this?</p>
         <div className="identity-choices">
           {names.map((name, i) => (
@@ -203,7 +245,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1 className="brand"><Clapperboard size={20} aria-hidden="true" /> Movie Night</h1>
+        <h1 className="brand"><BrandMark size={24} /> Movie Night</h1>
         <div className="topbar-right">
           <button className="room-pill" onClick={copyRoomCode} aria-label={`Room code ${normalizedRoom}, tap to copy`}>{normalizedRoom}</button>
           <button className={"header-icon-btn" + (tab === "settings" ? " active" : "")} onClick={() => setTab("settings")} aria-label="Settings" aria-current={tab === "settings" ? "page" : undefined}>
@@ -223,7 +265,7 @@ export default function App() {
           <SuggestTab settings={settings} genreMap={genreMap} movies={movies} me={me} haveIt={haveIt} toggleHype={toggleHype} onMarkSeen={setSeenPrompt} removeMovie={removeMovie} addItem={addItem} showToast={showToast} openDetails={setDetailsItem} />
         )}
         {tab === "discover" && (
-          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} householdServices={householdServices} />
+          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} householdServices={householdServices} onMatch={(item) => celebrate(swipeKey(item.mediaType, item.tmdbId), item)} />
         )}
         {tab === "pick" && (
           <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} contentType={settings.contentType} onWatchNow={(id) => markSeen(id, "both")} openDetails={setDetailsItem} />
@@ -270,15 +312,19 @@ export default function App() {
 
       <Toast toast={toast} />
 
+      {celebration && (
+        <MatchCelebration match={celebration} names={names} onClose={() => setCelebration(null)} />
+      )}
+
       <nav className="tabbar" aria-label="Main">
         <TabBtn icon={<Plus size={19} aria-hidden="true" />} label="Suggest" active={tab === "suggest"} onClick={() => setTab("suggest")} />
         <TabBtn icon={<Shuffle size={19} aria-hidden="true" />} label="Pick" active={tab === "pick"} onClick={() => setTab("pick")} />
-        <div className="tabbar-spacer" />
+        <button className={"tab tab-discover" + (tab === "discover" ? " active" : "")} onClick={() => setTab("discover")} aria-current={tab === "discover" ? "page" : undefined}>
+          <span className="fab-circle"><Flame size={24} aria-hidden="true" /></span>
+          <span>Discover</span>
+        </button>
         <TabBtn icon={<Eye size={19} aria-hidden="true" />} label="Watched" active={tab === "watched"} onClick={() => setTab("watched")} />
         <TabBtn icon={<Award size={19} aria-hidden="true" />} label="Stats" active={tab === "stats"} onClick={() => setTab("stats")} />
-        <button className={"fab-discover" + (tab === "discover" ? " active" : "")} onClick={() => setTab("discover")} aria-label="Discover" aria-current={tab === "discover" ? "page" : undefined}>
-          <Flame size={24} aria-hidden="true" />
-        </button>
       </nav>
     </div>
   );

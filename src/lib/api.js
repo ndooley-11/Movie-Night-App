@@ -93,10 +93,11 @@ function monthsAgoISO(n) {
 
 const langParam = (language) => (language === "en" ? "&with_original_language=en" : "");
 
-export async function fetchRecent(mediaType, apiKey, { page = 1, language = "any" } = {}) {
+export async function fetchRecent(mediaType, apiKey, { page = 1, language = "any", months = 3 } = {}) {
   const dateField = mediaType === "movie" ? "primary_release_date" : "first_air_date";
+  const today = new Date().toISOString().slice(0, 10);
   const d = await tmdb(
-    `${FIELDS[mediaType].discoverPath}?sort_by=popularity.desc&vote_count.gte=5&${dateField}.gte=${monthsAgoISO(3)}&page=${page}${langParam(language)}`,
+    `${FIELDS[mediaType].discoverPath}?sort_by=popularity.desc&vote_count.gte=5&${dateField}.gte=${monthsAgoISO(months)}&${dateField}.lte=${today}&page=${page}${langParam(language)}`,
     apiKey
   );
   return d.results || [];

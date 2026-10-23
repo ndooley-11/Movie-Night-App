@@ -1,4 +1,30 @@
+import { useId } from "react";
 import { Film, Tv, Star, Check, X } from "lucide-react";
+
+// Simplified from the popcorn app icon so it stays legible at header size:
+// same puffed top, rim and tapered bucket, with two stripe gaps instead of three.
+export function BrandMark({ size = 22 }) {
+  const clip = `brand-clip-${useId().replace(/:/g, "")}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="brand-mark">
+      <defs><clipPath id={clip}><rect x="0" y="0" width="24" height="10.1" /></clipPath></defs>
+      <g fill="currentColor">
+        <g clipPath={`url(#${clip})`}>
+          <circle cx="6.1" cy="9" r="2.7" />
+          <circle cx="9.3" cy="6.3" r="3" />
+          <circle cx="13.1" cy="5.3" r="3.2" />
+          <circle cx="16.8" cy="6.6" r="2.9" />
+          <circle cx="18.4" cy="9.3" r="2.4" />
+          <circle cx="11.6" cy="8.4" r="2.6" />
+        </g>
+        <rect x="3" y="10.8" width="18" height="2.4" rx="1" />
+        <path d="M4.6 14.2H8.8L9.4 21.4H6.4Z" />
+        <path d="M10 14.2H14L13.4 21.4H10.6Z" />
+        <path d="M15.2 14.2H19.4L17.6 21.4H14.6Z" />
+      </g>
+    </svg>
+  );
+}
 
 export function Stars({ value, onChange, size = 16, readOnly = false, label = "Rating" }) {
   if (readOnly) {
