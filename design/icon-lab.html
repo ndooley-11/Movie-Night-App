@@ -179,6 +179,8 @@ function renderIcon(rawGlyph) {
     ['60,80,255', 1, S * 0.434, S * 0.036, 9],
     ['30,200,255', 0.95, S * 0.416, S * 0.028, 10],
   ];
+  // ?rim=0 drops these rim bands entirely (the shipped icon uses rim=0)
+  if (new URLSearchParams(location.search).get('rim') !== '0') {
   x.save(); x.globalCompositeOperation = 'lighter';
   fringes.forEach(([col, a, r, w, blur]) => {
     x.filter = `blur(${blur * 2.4}px)`;
@@ -189,6 +191,7 @@ function renderIcon(rawGlyph) {
   x.filter = 'blur(3px)';
   squirclePath(x, cx, cy, S * 0.444); x.lineWidth = S * 0.008; x.strokeStyle = cornerMask(x, '255,255,255', 0.55, 0.06); x.stroke();
   x.restore();
+  }
 
   // glyph: soft glow first
   x.save(); x.filter = 'blur(40px)'; x.globalAlpha = 0.3; x.drawImage(tint(glyph, '#cfd6ff'), 0, 0); x.restore();
