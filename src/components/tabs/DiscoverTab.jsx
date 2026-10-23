@@ -75,6 +75,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
   const [exiting, setExiting] = useState(null);
   const [flipped, setFlipped] = useState(false);
   const gesture = useRef(null);
+  const cardRef = useRef(null);
   const mixerRef = useRef(createMixer());
   const genRef = useRef(0);
   const busyRef = useRef(false);
@@ -225,10 +226,29 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
 
   function commitSwipe(liked) {
     if (!current || exiting || seenItem) return;
-    setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
-    // This like completes a match: confirm it now rather than waiting for the
-    // shared list to round-trip. App adds the title and de-duplicates.
-    if (liked && partnerSwipes[swipeKey(current.mediaType, current.tmdbId)] === "like") onMatch?.(current);
+    const saved = setSwipe(me, current.mediaType, current.tmdbId, liked ? "like" : "pass");
+    if (liked && partnerSwipes[swipeKey(current.mediaType, current.tmdbId)] === "like") {
+      // This like completes a match. Hand the card to the celebration: a copy
+      // of its face takes over this exact spot (the burst is anchored to it),
+      // while the real card leaves the queue at once so the next title is
+      // ready underneath. App adds the title to the list and de-duplicates.
+      const cardEl = cardRef.current;
+      const face = cardEl?.querySelector(".face.front")?.cloneNode(true);
+      if (face) {
+        face.removeAttribute("aria-hidden");
+        face.style.visibility = "visible";
+        face.querySelectorAll(".card-info-btn, .swipe-stamp").forEach((n) => n.remove());
+      }
+      const slot = cardEl?.closest(".deck-inner")?.getBoundingClientRect();
+      onMatch?.(current, { saved, origin: face && slot ? { rect: slot, node: face, dragX } : null });
+      const key = `${current.mediaType}:${current.tmdbId}`;
+      const drop = (q) => q.filter((it) => `${it.mediaType}:${it.tmdbId}` !== key);
+      setQueue(drop);
+      setTheirQueue(drop);
+      setDragX(0);
+      setFlipped(false);
+      return;
+    }
     dismissCurrent(liked ? "right" : "left");
   }
 
@@ -398,6 +418,7 @@ export default function DiscoverTab({ settings, saveSettings, genreMap, movies, 
           {current && (
             <div
               key={`${current.mediaType}:${current.tmdbId}`}
+              ref={cardRef}
               className={"swipe-card" + (exiting ? " exit-" + exiting : "") + (flipped ? " flipped" : "")}
               style={cardStyle}
               onPointerDown={onPointerDown}

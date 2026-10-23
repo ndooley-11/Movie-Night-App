@@ -54,8 +54,9 @@ export default function App() {
   const celebratedRef = useRef({ room: null, keys: new Set() });
 
   // Shows "You both picked this" at most once per match on this device, even
-  // across refreshes and reconnects.
-  const celebrate = useCallback((key, item) => {
+  // across refreshes and reconnects. From Discover it also gets the card's
+  // position and face, plus the save of the like that completed the match.
+  const celebrate = useCallback((key, item, { origin = null, saved = null } = {}) => {
     if (!normalizedRoom) return;
     if (celebratedRef.current.room !== normalizedRoom) {
       celebratedRef.current = { room: normalizedRoom, keys: loadCelebrated(normalizedRoom) };
@@ -64,7 +65,7 @@ export default function App() {
     if (keys.has(key)) return;
     keys.add(key);
     saveCelebrated(normalizedRoom, keys);
-    setCelebration({ key, title: item.title, poster: item.poster || null });
+    setCelebration({ key, title: item.title, poster: item.poster || null, origin, saved });
   }, [normalizedRoom]);
 
   const showToast = useCallback((message, action) => {
@@ -72,6 +73,14 @@ export default function App() {
     setToast({ message, action });
     toastTimer.current = setTimeout(() => setToast(null), action ? 5000 : 2600);
   }, []);
+
+  // The like didn't save (or never confirmed): forget we celebrated, so the
+  // match can still be celebrated once it really lands in the shared list.
+  const uncelebrate = useCallback((key, failed) => {
+    celebratedRef.current.keys.delete(key);
+    if (normalizedRoom) saveCelebrated(normalizedRoom, celebratedRef.current.keys);
+    if (failed) showToast("Couldn't save that like. Check your connection and try again.");
+  }, [normalizedRoom, showToast]);
 
   useEffect(() => {
     if (!pendingNames || !normalizedRoom) return;
@@ -309,7 +318,7 @@ export default function App() {
           <SuggestTab settings={settings} genreMap={genreMap} movies={movies} me={me} people={people} toggleHype={toggleHype} onMarkSeen={setSeenPrompt} removeMovie={removeMovie} addItem={addItem} showToast={showToast} openDetails={setDetailsItem} />
         )}
         {tab === "discover" && (
-          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} people={people} onMatch={(item) => celebrate(swipeKey(item.mediaType, item.tmdbId), item)} onSeenIt={saveSeenIt} />
+          <DiscoverTab settings={settings} saveSettings={saveSettings} genreMap={genreMap} movies={movies} me={me} partner={partner} swipes={swipes} setSwipe={setSwipe} showPassed={showPassed} setShowPassed={setShowPassed} language={language} setLanguage={setLanguage} people={people} onMatch={(item, extra) => celebrate(swipeKey(item.mediaType, item.tmdbId), item, extra)} onSeenIt={saveSeenIt} />
         )}
         {tab === "pick" && (
           <PickTab movies={movies} me={me} partner={partner} allGenres={allGenres} contentType={settings.contentType} tonight={tonight} onChooseTonight={id => chooseTonight(id, meIdx)} onClearTonight={clearTonight} onFinishTonight={async id => { if (movies.find(m => m.id === id)?.mediaType === 'tv') await startShow(id); else await markSeen(id, 'both'); await clearTonight(id); }} openDetails={setDetailsItem} />
@@ -357,7 +366,9 @@ export default function App() {
       <Toast toast={toast} />
 
       {celebration && (
-        <MatchCelebration match={celebration} names={names} onClose={() => setCelebration(null)} />
+        <MatchCelebration key={celebration.key} match={celebration} names={names}
+          onClose={() => setCelebration(c => (c?.key === celebration.key ? null : c))}
+          onFailed={failed => uncelebrate(celebration.key, failed)} />
       )}
 
       <nav className="tabbar" aria-label="Main">

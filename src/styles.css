@@ -13,6 +13,8 @@
   --like: #3ecf8e;
   --pass: #ff5c5c;
   --access-one: #84aaff;       /* streaming: only one of you has it */
+  --heart-pink: #ff8aca;       /* the partner's heart in the match animation */
+  --kernel: #fff1cf;           /* popcorn in the match burst */
   --gold: #f2b84b;
   --danger-text: #ff9a9a;
   --border: rgba(255, 255, 255, 0.07);
@@ -843,6 +845,7 @@ input, textarea { caret-color: var(--accent); }
   .swipe-card { transition: opacity 0.2s linear; }
   .swipe-card.exit-right, .swipe-card.exit-left, .swipe-card.exit-up { transform: none !important; }
   .sheet, .sheet-overlay, .modal, .modal-overlay, .toast, .filter-panel, .savebar, .match-card, .avatar-a, .avatar-b { animation: none; }
+  .match-fx.leaving { transition: none; }
   .card-skeleton, .details-skeleton span { animation: none; }
   .btn, .swipe-btn, .fab-circle, .segmented button, .switch, .switch-knob { transition: none; }
 }
@@ -1006,3 +1009,26 @@ label.field-label .input { width: 100%; color: var(--text); }
 .standalone .app, .standalone .gate { height: 100vh; height: 100lvh; }
 .standalone .sheet-overlay, .standalone .modal-overlay { position: absolute; }
 .standalone .sheet { max-height: calc(100lvh - 40px - env(safe-area-inset-top)); }
+
+/* ---- "Two hearts, one pick" match animation ----
+   Layers, back to front: rear particles, the retained matched card, front
+   particles and hearts, then the confirmation. The card genuinely occludes the
+   rear particles. Nothing here takes pointer input: taps reach the app. */
+.match-fx { position: absolute; inset: 0; z-index: 44; pointer-events: none; overflow: hidden; isolation: isolate; transition: opacity 0.22s ease-out; }
+.match-fx.leaving { opacity: 0; }
+.mc-particles { position: absolute; inset: 0; pointer-events: none; }
+.mc-back { z-index: 1; }
+.mc-front { z-index: 4; }
+.mc-card { position: absolute; z-index: 2; transform-origin: center; }
+.mc-settle, .mc-host { position: absolute; inset: 0; }
+.mc-card .face { visibility: visible; transition: none; }
+.mc-particle { position: absolute; display: block; opacity: 0; }
+.mc-particle svg, .mc-merge svg { width: 100%; height: 100%; display: block; fill: currentColor; stroke: currentColor; stroke-width: 1; stroke-linejoin: round; }
+.mc-particle svg { filter: drop-shadow(0 2px 4px #0004); }
+.mc-kernel { background: var(--kernel); border-radius: 55% 48% 60% 45%; box-shadow: inset -3px -3px 3px #e8b96d; }
+.mc-kernel::before, .mc-kernel::after { content: ""; position: absolute; background: #fff6df; width: 70%; height: 70%; border-radius: 50%; box-shadow: inset -1px -2px 2px #e8b96d70; }
+.mc-kernel::before { top: -17%; left: 3%; transform: rotate(-25deg); }
+.mc-kernel::after { top: 2%; right: -17%; transform: rotate(30deg); }
+.mc-merge { position: absolute; z-index: 6; width: 46px; height: 46px; opacity: 0; }
+.match-fx .match-layer { z-index: 5; }
+.match-fx .match-card { pointer-events: none; cursor: default; }
