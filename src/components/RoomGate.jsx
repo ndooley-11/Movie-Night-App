@@ -1,13 +1,33 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Users, ArrowRight } from "lucide-react";
 import { BrandMark } from "./shared.jsx";
 import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from "../lib/room.js";
+import InstallGuide from './InstallGuide.jsx';
+import { createInstallGuidePreference, supportsInstallGuide } from '../lib/installGuide.js';
+
+const guidePreference = createInstallGuidePreference(() => localStorage);
+function guideSupported() {
+  return supportsInstallGuide({ userAgent: navigator.userAgent, standalone: navigator.standalone, displayModeStandalone: window.matchMedia?.('(display-mode: standalone)').matches });
+}
 
 export default function RoomGate({ onJoin, onCreate }) {
   const [mode, setMode] = useState("join");
   const [code, setCode] = useState("");
   const [names, setNames] = useState(["", ""]);
   const [error, setError] = useState("");
+  const [installSupported, setInstallSupported] = useState(guideSupported);
+  const [guideOpen, setGuideOpen] = useState(() => guideSupported() && !guidePreference.wasDismissed());
+  const closeGuide = useCallback(() => {
+    guidePreference.dismiss();
+    setGuideOpen(false);
+  }, []);
+  useEffect(() => {
+    const media = window.matchMedia('(display-mode: standalone)');
+    function installed(event) { if (event?.type === 'appinstalled' || navigator.standalone || media.matches) { setInstallSupported(false); setGuideOpen(false); } }
+    media.addEventListener('change', installed);
+    window.addEventListener('appinstalled', installed);
+    return () => { media.removeEventListener('change', installed); window.removeEventListener('appinstalled', installed); };
+  }, []);
 
   function join() {
     const normalized = normalizeRoomCode(code);
@@ -29,6 +49,7 @@ export default function RoomGate({ onJoin, onCreate }) {
 
   return (
     <div className="gate">
+      <div className="gate-content" inert={guideOpen ? '' : undefined}>
       <div className="gate-card">
         <div className="gate-brand"><BrandMark size={30} /><span>Movie Night</span></div>
         <p className="gate-sub">A shared watchlist for two. Pick a room to get started.</p>
@@ -69,6 +90,9 @@ export default function RoomGate({ onJoin, onCreate }) {
 
         {error && <p className="gate-error">{error}</p>}
       </div>
+      {installSupported && <button className="link-btn install-reopen" onClick={() => setGuideOpen(true)}>Add to Home Screen</button>}
+      </div>
+      {guideOpen && <InstallGuide onClose={closeGuide} />}
     </div>
   );
 }

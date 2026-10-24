@@ -1,0 +1,107 @@
+.install-guide-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,7,12,.66);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding-top:max(20px,env(safe-area-inset-top))}
+.install-guide{--ri-text:#f2f2f7;--ri-muted:#b8bfce;position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:420px;height:min(800px,calc(100dvh - max(20px,env(safe-area-inset-top))));min-height:0;border:1px solid #ffffff0d;border-bottom:0;border-radius:25px 25px 0 0;background:#1c1c1e;padding:32px 24px max(24px,env(safe-area-inset-bottom));color:var(--ri-text);box-shadow:0 -10px 35px #0003;animation:install-enter .5s cubic-bezier(.22,1,.36,1)}
+.install-guide:before{content:'';position:absolute;top:-9px;left:5%;right:5%;height:14px;border-radius:20px 20px 0 0;background:#19191c;z-index:-1}
+.install-guide h2{flex-shrink:0;font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-.045em;text-align:center;margin:0;text-wrap:balance}
+.install-demo-slot{display:flex;align-items:center;justify-content:center;flex:1;min-height:0;width:100%;margin:22px 0 0}
+.install-guide .ri-demo-window{position:relative;flex-shrink:0;overflow:hidden;border-radius:28px;background:#101116;box-shadow:0 0 0 1px #ffffff24,0 12px 25px #0004}
+.install-guide .ri-demo-screen{position:relative;isolation:isolate;overflow:hidden;width:393px;height:852px;transform-origin:top left;border-radius:44px;background:#11121b;color:var(--ri-text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+.install-guide .ri-demo-screen svg{display:block;flex-shrink:0;stroke-width:1.7}
+.install-guide .ri-status{position:absolute;top:21px;left:30px;right:28px;display:flex;justify-content:space-between;z-index:10;font-size:14px;font-weight:600;color:var(--ri-text)}
+.install-guide .ri-status svg{width:20px;height:20px}
+.install-guide .ri-island{position:absolute;top:12px;left:calc(50% - 56px);width:112px;height:31px;background:#030405;border-radius:20px;z-index:10}
+.install-guide .ri-gate{position:absolute;top:28%;left:6%;right:6%;padding:22px 20px;border-radius:18px;background:#1e2230;box-shadow:0 8px 22px #0004;transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .4s}
+.install-guide .ri-brand{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:650;margin-bottom:10px}
+.install-guide .ri-brand svg{width:23px;height:23px;color:var(--accent)}
+.install-guide .ri-gate p{font-size:13px;line-height:1.55;color:var(--ri-muted);margin:0 0 15px}
+.install-guide .ri-gate-tabs{display:flex;gap:20px;font-size:13px;color:var(--ri-muted);margin-bottom:15px}
+.install-guide .ri-gate-tabs span:first-child{color:var(--ri-text);border-bottom:1px solid var(--accent);padding-bottom:6px}
+.install-guide .ri-field{font-size:13px;color:var(--ri-muted)}
+.install-guide .ri-input{border:1px solid #ffffff14;border-radius:7px;height:34px;margin:7px 0 11px;padding:7px;color:var(--ri-muted);font-size:13px}
+.install-guide .ri-join{display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-size:13px}
+.install-guide .ri-join svg{width:12px;height:12px}
+.install-guide .ri-toolbar{position:absolute;left:6%;right:6%;bottom:35px;display:flex;gap:8px;align-items:center;color:var(--ri-muted);transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .4s}
+.install-guide .ri-toolbar svg{width:19px;height:19px}
+.install-guide .ri-nav-pair{background:#2a2a2ef0;border-radius:20px;display:flex;gap:12px;padding:11px}
+.install-guide .ri-address{display:flex;align-items:center;gap:8px;min-width:0;min-height:42px;background:#2a2a2ef0;backdrop-filter:blur(20px);border-radius:20px;padding:5px;flex:1;font-size:13px;box-shadow:inset 0 1px 0 #ffffff13}
+.install-guide .ri-address>span:not(.ri-target){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.install-guide .ri-target{position:relative;display:grid;place-items:center;border-radius:9px;min-width:26px;min-height:26px;flex-shrink:0}
+.install-guide .ri-highlight{position:relative;box-shadow:0 0 0 1px var(--accent);background:#55e5ff12}
+.install-guide .ri-playing .ri-highlight:after{content:'';position:absolute;top:calc(50% - 12px);left:calc(50% - 12px);width:24px;height:24px;border:1px solid #ffffffa0;border-radius:50%;background:#ffffff80;opacity:0;animation:install-touch .65s ease-out .4s}
+.install-guide .ri-menu{position:absolute;right:7%;bottom:91px;width:64%;background:#333336eb;backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4);border:1px solid #ffffff12;border-radius:22px;padding:6px;box-shadow:0 15px 30px #0005;z-index:2}
+.install-guide .ri-menu:not([hidden]){animation:install-menu .3s cubic-bezier(.2,.8,.2,1)}
+.install-guide .ri-menu-row{display:flex;align-items:center;gap:13px;min-height:42px;padding:9px 12px;font-size:14px;border-bottom:1px solid #ffffff0d}
+.install-guide .ri-menu-row:last-child{border-bottom:0}
+.install-guide .ri-menu-row svg{width:19px;height:19px}
+.install-guide .ri-menu-row.ri-highlight{background:#ffffff16;box-shadow:none;border-radius:12px}
+.install-guide .ri-share{position:absolute;left:0;right:0;bottom:0;height:63%;z-index:3;border-radius:30px 30px 0 0;background:#27272bf2;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);box-shadow:0 -12px 30px #0004;padding:24px 17px 15px;transition:height .52s cubic-bezier(.22,1,.36,1)}
+.install-guide .ri-share.ri-expanded{height:93%}
+.install-guide .ri-share:not([hidden]){animation:install-sheet .55s cubic-bezier(.22,1,.36,1)}
+.install-guide .ri-share:before{content:'';position:absolute;top:8px;left:calc(50% - 16px);width:32px;height:4px;border-radius:3px;background:#73737866}
+.install-guide .ri-share-title{display:flex;gap:12px;align-items:center;margin-bottom:22px;font-size:15px;font-weight:600}
+.install-guide .ri-share-title small{display:block;font-size:12px;color:#aaaab2;margin-top:4px;font-weight:400}
+.install-guide .ri-app-icon{display:grid;place-items:center;width:49px;height:49px;flex-shrink:0;border-radius:13px;background:#11121b;border:1px solid #55e5ff40;box-shadow:0 4px 10px #0003}
+.install-guide .ri-app-icon svg{width:32px;height:32px}
+.install-guide .ri-recipients{display:flex;justify-content:space-around;gap:8px;border-top:1px solid #ffffff14;padding-top:19px;margin-bottom:22px}
+.install-guide .ri-recipients span{width:51px;height:51px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#6b7095,#323d69);font-size:18px;font-weight:500}
+.install-guide .ri-recipients span:nth-child(2){background:linear-gradient(145deg,#947558,#55473a)}
+.install-guide .ri-recipients span:nth-child(3){background:linear-gradient(145deg,#648c7e,#335e58)}
+.install-guide .ri-recipients span:nth-child(4){background:linear-gradient(145deg,#8e6b8f,#634969)}
+.install-guide .ri-services{display:flex;justify-content:space-around;padding-bottom:21px;border-bottom:1px solid #ffffff14}
+.install-guide .ri-services span{width:51px;height:51px;border-radius:14px;display:grid;place-items:center;background:#337fd6;color:#fff;box-shadow:inset 0 1px 0 #ffffff24}
+.install-guide .ri-services span:nth-child(2){background:#57555c}.install-guide .ri-services span:nth-child(3){background:#496761}.install-guide .ri-services span:nth-child(4){background:#32b957}
+.install-guide .ri-services svg{width:30px;height:30px}
+.install-guide .ri-shortcuts{display:flex;justify-content:space-between;gap:5px;padding-top:18px;margin-bottom:16px}
+.install-guide .ri-shortcut{position:relative;display:flex;align-items:center;flex-direction:column;gap:8px;width:23%;text-align:center;color:var(--ri-muted);font-size:12px;line-height:1.3;border-radius:12px;padding:5px 2px}
+.install-guide .ri-shortcut>span{display:grid;place-items:center;width:47px;height:47px;background:#3a3a40;border-radius:50%}
+.install-guide .ri-shortcut svg{width:27px;height:27px;stroke-width:1.5}
+.install-guide .ri-view-more.ri-highlight{box-shadow:none;background:none}
+.install-guide .ri-view-more.ri-highlight>span{box-shadow:0 0 0 1px #ffffff70;color:#fff;background:#ffffff12}
+.install-guide .ri-action-list{background:#414145;border-radius:18px;overflow:hidden;margin-top:8px}
+.install-guide .ri-action-row{display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px;padding:10px 13px;border-bottom:1px solid #ffffff0e}
+.install-guide .ri-action-row:last-child{border-bottom:0}
+.install-guide .ri-action-row svg{width:21px;height:21px;stroke-width:1.5}
+.install-guide .ri-action-row.ri-highlight{background:#ffffff12;box-shadow:inset 0 0 0 1px #55e5ff70;border-radius:12px}
+.install-guide .ri-add{position:absolute;inset:58px 0 0;z-index:4;background:#1c1c1e;border-radius:26px 26px 0 0}
+.install-guide .ri-add:not([hidden]){animation:install-sheet .55s cubic-bezier(.22,1,.36,1)}
+.install-guide .ri-add-header{display:flex;justify-content:space-between;align-items:center;min-height:68px;padding:14px 16px;gap:6px;border-bottom:1px solid #ffffff14;font-size:15px;font-weight:600}
+.install-guide .ri-x{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#38393d;color:var(--ri-muted)}
+.install-guide .ri-x svg{width:15px;height:15px}
+.install-guide .ri-add-confirm{background:#0a84ff;border-radius:25px;padding:11px 14px;font-size:15px;box-shadow:none}
+.install-guide .ri-name{display:flex;align-items:center;gap:16px;padding:20px 15px;border-bottom:1px solid #ffffff14;font-size:16px}
+.install-guide .ri-name small{display:block;font-size:12px;color:var(--ri-muted);margin-top:8px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.install-guide .ri-webapp{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#2c2c2e;margin-top:32px;padding:15px;font-size:15px}
+.install-guide .ri-switch{width:45px;height:27px;background:#30d158;border-radius:14px;display:flex;justify-content:flex-end;padding:2px}
+.install-guide .ri-switch:after{content:'';width:23px;height:23px;background:#f7f8fa;border-radius:50%}
+.install-guide .ri-add-note{font-size:12px;line-height:1.6;color:var(--ri-muted);padding:0 16px}
+.install-guide .ri-keyboard{position:absolute;bottom:0;left:0;right:0;height:247px;background:#26262b;padding:14px 5px 35px;display:flex;flex-direction:column;gap:9px}
+.install-guide .ri-key-row{display:flex;justify-content:center;gap:6px}
+.install-guide .ri-key{display:grid;place-items:center;width:32px;height:43px;border-radius:6px;background:#5a5a60;color:#f5f5f7;font-size:19px;box-shadow:0 1px 1px #0008}
+.install-guide .ri-key-wide{width:46px;background:#3a3a40;font-size:14px}.install-guide .ri-space{width:176px;font-size:16px}.install-guide .ri-done{background:#0a84ff;width:64px;font-size:18px}
+.install-guide .ri-home{position:absolute;inset:0;z-index:6;background:radial-gradient(ellipse at 0 0,#556c83,transparent 65%),radial-gradient(ellipse at 85% 85%,#316d74,#172333);padding:100px 27px}
+.install-guide .ri-home-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px 18px}
+.install-guide .ri-home-grid>span{display:grid;place-items:center;aspect-ratio:1;border-radius:14px;background:#7d8fa050}
+.install-guide .ri-home-grid>span svg{width:25px;height:25px;color:#dce5ed}
+.install-guide .ri-home-grid>span:nth-child(1){background:linear-gradient(#c4c5ca,#8e9098)}.install-guide .ri-home-grid>span:nth-child(1) svg{color:#27282e}
+.install-guide .ri-home-grid>span:nth-child(2){background:linear-gradient(#fb6669 25%,#f2f2f7 25%)}.install-guide .ri-home-grid>span:nth-child(2) svg{color:#33343b}
+.install-guide .ri-home-grid>span:nth-child(3){background:linear-gradient(#237ed8,#77c7ef)}.install-guide .ri-home-grid>span:nth-child(4){background:linear-gradient(#a5a7ad,#7f8189)}.install-guide .ri-home-grid>span:nth-child(4) svg{color:#303139}
+.install-guide .ri-home-grid>span:nth-child(5){background:#eeeef2}.install-guide .ri-home-grid>span:nth-child(5) svg{color:#ed8b73}.install-guide .ri-home-grid>span:nth-child(6){background:linear-gradient(#fb5a77,#ed254d)}.install-guide .ri-home-grid>span:nth-child(7){background:#16171b}.install-guide .ri-home-grid>span:nth-child(8){background:linear-gradient(#6bd873,#25ba46)}
+.install-guide .ri-home-app{grid-column:1;display:flex;align-items:center;flex-direction:column;gap:8px;font-size:13px;white-space:nowrap}
+.install-guide .ri-home-app .ri-app-icon{width:61px;height:61px;border-radius:16px;border:0;background:linear-gradient(145deg,#343a50,#10131c);box-shadow:0 5px 15px #0004}
+.install-guide .ri-home:not([hidden]){animation:install-home .45s cubic-bezier(.22,1,.36,1)}.install-guide .ri-home:not([hidden]) .ri-home-app{animation:install-app .6s cubic-bezier(.2,.8,.2,1.12)}
+.install-guide .ri-home-indicator{position:absolute;bottom:10px;left:calc(50% - 57.5px);width:115px;height:5px;border-radius:5px;background:var(--ri-text);opacity:.7;z-index:10}
+.install-guide .ri-system-open .ri-gate,.install-guide .ri-system-open .ri-toolbar{opacity:.3;transform:translateY(-16px) scale(.96)}
+.install-guide [hidden]{display:none!important}
+.install-playback{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 8px;background:none;border:0;color:#aaaab2;font:inherit;font-size:12px;cursor:pointer;flex-shrink:0}
+.install-continue{display:flex;align-items:center;justify-content:center;width:min(100%,225px);min-height:46px;flex-shrink:0;border:1px solid var(--accent-line);border-radius:24px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.install-continue:hover{background:#55e5ff24}.install-reopen{display:flex;align-items:center;justify-content:center;min-height:44px;margin:8px auto 0;font-size:13px}
+.gate-content{width:100%;max-width:380px}
+@keyframes install-enter{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes install-menu{from{opacity:0;transform:translateY(9px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes install-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes install-touch{0%{transform:scale(.75);opacity:0}25%{opacity:.8}100%{transform:scale(1.25);opacity:0}}
+@keyframes install-home{from{transform:scale(1.07);opacity:.5}to{transform:scale(1);opacity:1}}
+@keyframes install-app{0%{transform:scale(.5);opacity:0}65%{transform:scale(1.06);opacity:1}100%{transform:scale(1);opacity:1}}
+@media(min-width:600px){.install-guide-overlay{align-items:center;padding:24px}.install-guide{height:min(800px,calc(100dvh - 48px));border-radius:25px;border-bottom:1px solid #ffffff0d}.install-guide:before{display:none}}
+@media(max-height:700px){.install-guide{padding-top:22px}.install-guide h2{font-size:24px}.install-demo-slot{margin-top:14px}}
+@media(max-height:500px) and (min-width:600px){.install-guide{display:grid;grid-template-columns:minmax(0,1fr) 130px;grid-template-rows:1fr 44px 46px;gap:6px 20px;width:min(100%,560px);padding:18px 24px}.install-guide h2{grid-column:1;align-self:end}.install-demo-slot{grid-column:2;grid-row:1/4;height:100%;margin:0}.install-playback{grid-column:1}.install-continue{grid-column:1;justify-self:center}}
+@media(prefers-reduced-motion:reduce){.install-guide,.install-guide .ri-menu:not([hidden]),.install-guide .ri-share:not([hidden]),.install-guide .ri-add:not([hidden]),.install-guide .ri-home:not([hidden]),.install-guide .ri-home:not([hidden]) .ri-home-app,.install-guide .ri-playing .ri-highlight:after{animation:none}.install-guide .ri-share,.install-guide .ri-gate,.install-guide .ri-toolbar{transition:none}}

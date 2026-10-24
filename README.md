@@ -144,9 +144,21 @@ stored in Firestore so both of you see it after either one sets it.
 
 ## 6. Add it to your phone
 
+The room-code page offers an iPhone Safari welcome sheet with an embedded,
+11-second installation animation. Continue, Escape, or tapping outside dismisses
+it; that choice is remembered on the device. The small “Add to Home Screen” link
+replays it. It stays hidden in installed Home Screen mode and in other browsers.
+Reduced-motion users get manual frame controls instead of autoplay.
+
 Open the GitHub Pages URL on your phone, then:
-- **iPhone (Safari)**: tap the Share icon → "Add to Home Screen"
+
+- **iPhone (Safari)**: page menu beside the address → Share → View More (if shown)
+  → Add to Home Screen → leave Open as Web App on → Add. Safari's other toolbar
+  layouts may show Share directly.
 - **Android (Chrome)**: tap the ⋮ menu → "Install app"
+
+Local component check: `/Movie-Night-App/design/install-preview.html`; append
+`?reduced=1` to emulate reduced motion in this development-only fixture.
 
 ## Notes
 
