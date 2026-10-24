@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { Popcorn, BatteryFull, ChevronLeft, ChevronRight, RotateCw, PanelsTopLeft, ListFilter, Sparkles, Languages, Share, Bookmark, BookOpen, Search, ZoomIn, Radio, Image, Send, MessageCircle, Copy, Glasses, ChevronDown, ChevronUp, Star, StickyNote, PlusSquare, X, Camera, CalendarDays, CloudSun, Settings, Music, Clock, Pause, Play, RotateCcw } from 'lucide-react';
-import { INSTALL_SCENES, installSceneDelay } from '../lib/installGuide.js';
+import { Popcorn, BatteryFull, ChevronLeft, ChevronRight, RotateCw, PanelsTopLeft, Menu, Sparkles, Languages, Share, Bookmark, BookOpen, Search, ZoomIn, Radio, Image, Send, MessageCircle, Copy, Glasses, ChevronDown, ChevronUp, Star, StickyNote, PlusSquare, X, Camera, CalendarDays, CloudSun, Settings, Music, Clock, Pause, Play, RotateCcw } from 'lucide-react';
+import { INSTALL_SCENES, INSTALL_START_MS, installSceneDelay } from '../lib/installGuide.js';
 import './install-guide.css';
 
 const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -26,7 +26,7 @@ function IPhoneRecording({ scene, playing, slotRef }) {
     <div className={'ri-demo-screen' + (playing ? ' ri-playing' : '') + (scene >= 2 ? ' ri-system-open' : '')} style={{ transform: `scale(${scale})` }}>
       <div className="ri-island" /><div className="ri-status"><span>9:41</span><BatteryFull /></div>
       <div className="ri-gate"><div className="ri-brand"><Popcorn />Movie Night</div><p>A shared watchlist for two.<br />Pick a room to get started.</p><div className="ri-gate-tabs"><span>Join a room</span><span>Start a room</span></div><div className="ri-field">Room code</div><div className="ri-input">e.g. movie-night</div><span className="ri-join">Join room<ChevronRight /></span></div>
-      <div className="ri-toolbar"><span className="ri-nav-pair"><ChevronLeft /><ChevronRight /></span><div className="ri-address"><span className={'ri-target' + (scene === 0 ? ' ri-highlight' : '')}><ListFilter /></span><span>ndooley-11.github.io</span><RotateCw /></div><PanelsTopLeft /></div>
+      <div className="ri-toolbar"><span className="ri-nav-pair"><ChevronLeft /><ChevronRight /></span><div className="ri-address"><span className={'ri-target' + (scene === 0 ? ' ri-highlight' : '')}><Menu /></span><span>ndooley-11.github.io</span><RotateCw /></div><PanelsTopLeft /></div>
       <div className="ri-menu" hidden={scene !== 1}>
         {[[Sparkles, 'Ask Siri'], [Languages, 'Translate Website…'], [Share, 'Share'], [Bookmark, 'Add to Favorites'], [BookOpen, 'Add Bookmark to…'], [Search, 'Find on Page'], [ZoomIn, 'Page Zoom']].map(([Icon, label]) => <div key={label} className={'ri-menu-row' + (label === 'Share' ? ' ri-highlight' : '')}><Icon />{label}</div>)}
       </div>
@@ -52,6 +52,7 @@ function IPhoneRecording({ scene, playing, slotRef }) {
 export default function InstallGuide({ onClose }) {
   const [scene, setScene] = useState(0), [reduced, setReduced] = useState(reduceMotion);
   const [playing, setPlaying] = useState(() => !reduceMotion());
+  const [started, setStarted] = useState(false);
   const ref = useRef(null), slotRef = useRef(null), titleId = useId();
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -63,9 +64,13 @@ export default function InstallGuide({ onClose }) {
   }, []);
   useEffect(() => {
     if (!playing || reduced) return;
-    const timer = setTimeout(() => setScene((scene + 1) % INSTALL_SCENES.length), installSceneDelay(scene));
+    const timer = setTimeout(() => {
+      if (!started) { setStarted(true); return; }
+      setScene((scene + 1) % INSTALL_SCENES.length);
+      if (scene === INSTALL_SCENES.length - 1) setStarted(false);
+    }, started ? installSceneDelay(scene) : INSTALL_START_MS);
     return () => clearTimeout(timer);
-  }, [scene, playing, reduced]);
+  }, [scene, playing, reduced, started]);
   useEffect(() => {
     const previous = document.activeElement, dialog = ref.current;
     const buttons = () => [...dialog.querySelectorAll('button')];
@@ -94,7 +99,7 @@ export default function InstallGuide({ onClose }) {
   return createPortal(<div className="install-guide-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
     <section className="install-guide" ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <h2 id={titleId}>Movie Night.<br />On your Home Screen.</h2>
-      <div className="install-demo-slot" ref={slotRef}><IPhoneRecording scene={scene} playing={playing && !reduced} slotRef={slotRef} /></div>
+      <div className="install-demo-slot" ref={slotRef}><IPhoneRecording scene={scene} playing={playing && !reduced && started} slotRef={slotRef} /></div>
       <p className="visually-hidden" role="status">{INSTALL_SCENES[scene]}</p>
       <button className="install-playback" onClick={toggle}><Icon size={14} aria-hidden="true" />{label}</button>
       <button className="install-continue" onClick={onClose}>Continue</button>

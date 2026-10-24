@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { supportsInstallGuide, createInstallGuidePreference, INSTALL_SCENES, installSceneDelay } from '../src/lib/installGuide.js';
+import { supportsInstallGuide, createInstallGuidePreference, INSTALL_SCENES, INSTALL_START_MS, installSceneDelay } from '../src/lib/installGuide.js';
 
 const safari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
 test('Safari instructions appear only for an iPhone browser with the illustrated controls', () => {
@@ -20,10 +20,11 @@ test('the recording includes View More before adding the app', () => {
   assert.match(INSTALL_SCENES[2], /View More/);
   assert.match(INSTALL_SCENES[3], /Add to Home Screen/);
   assert.match(INSTALL_SCENES[4], /Open as Web App/);
+  assert.match(INSTALL_SCENES[0], /three lines at the bottom/);
 });
 test('playback waits one second, gives actions two seconds, and holds the ending for 2.5 seconds', () => {
-  assert.equal(installSceneDelay(0), 1000);
-  for (const scene of [1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 2000);
+  assert.equal(INSTALL_START_MS, 1000);
+  for (const scene of [0, 1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 2000);
   assert.equal(installSceneDelay(5), 2500);
 });
 test('dismissing the welcome survives a refresh and leaves room data alone', () => {

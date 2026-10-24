@@ -23,7 +23,7 @@ export function supportsInstallGuide({ userAgent = '', standalone = false, displ
 }
 
 export const INSTALL_SCENES = [
-  'Tap the page menu beside Safari’s address bar.',
+  'Tap the three lines at the bottom of Safari, beside the address bar.',
   'Tap Share.',
   'Tap View More in the bottom-right corner.',
   'Tap Add to Home Screen.',
@@ -35,7 +35,6 @@ export const INSTALL_START_MS = 1000;
 export const INSTALL_END_HOLD_MS = 2500;
 
 export function installSceneDelay(scene) {
-  if (scene === 0) return INSTALL_START_MS;
   if (scene === INSTALL_SCENES.length - 1) return INSTALL_END_HOLD_MS;
   return INSTALL_SCENE_MS;
 }

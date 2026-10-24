@@ -145,7 +145,8 @@ stored in Firestore so both of you see it after either one sets it.
 ## 6. Add it to your phone
 
 The room-code page offers an iPhone Safari welcome sheet with an embedded,
-looping installation animation. It waits one second before starting, gives each
+looping installation animation. It waits one second, then demonstrates tapping
+the three lines at the bottom of Safari before opening Share. It gives each
 action two seconds, and holds the final screen for 2.5 seconds before repeating.
 Continue, Escape, or tapping outside dismisses
 it; that choice is remembered on the device. The small “Add to Home Screen” link
