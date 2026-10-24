@@ -21,9 +21,9 @@ test('the recording includes View More before adding the app', () => {
   assert.match(INSTALL_SCENES[3], /Add to Home Screen/);
   assert.match(INSTALL_SCENES[4], /Open as Web App/);
 });
-test('playback starts with an immediate tap, gives actions 1.2 seconds, and holds the ending for 1.5 seconds', () => {
+test('playback starts with an immediate tap, gives actions 1.5 seconds, and holds the ending for 1.5 seconds', () => {
   assert.equal(installSceneDelay(0), 350);
-  for (const scene of [1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 1200);
+  for (const scene of [1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 1500);
   assert.equal(installSceneDelay(5), 1500);
 });
 test('dismissing the welcome survives a refresh and leaves room data alone', () => {

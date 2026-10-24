@@ -30,7 +30,7 @@ export const INSTALL_SCENES = [
   'Leave Open as Web App on, then tap Add.',
   'Movie Night is ready on your Home Screen.',
 ];
-export const INSTALL_SCENE_MS = 1200;
+export const INSTALL_SCENE_MS = 1500;
 export const INSTALL_START_MS = 350;
 export const INSTALL_END_HOLD_MS = 1500;
 
