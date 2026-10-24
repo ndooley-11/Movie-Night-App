@@ -27,7 +27,7 @@
 .install-guide .ri-target{position:relative;display:grid;place-items:center;border-radius:9px;min-width:26px;min-height:26px;flex-shrink:0}
 .install-guide .ri-highlight{position:relative;box-shadow:0 0 0 1px var(--accent);background:#55e5ff12}
 .install-guide .ri-playing .ri-highlight:after{content:'';position:absolute;top:calc(50% - 12px);left:calc(50% - 12px);width:24px;height:24px;border:1px solid #ffffffa0;border-radius:50%;background:#ffffff80;opacity:0;animation:install-touch .65s ease-out .4s}
-.install-guide .ri-playing .ri-toolbar .ri-highlight:after{animation-delay:0s}
+.install-guide .ri-playing .ri-toolbar .ri-highlight:after{animation:none}
 .install-guide .ri-menu{position:absolute;right:7%;bottom:91px;width:64%;background:#333336eb;backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4);border:1px solid #ffffff12;border-radius:22px;padding:6px;box-shadow:0 15px 30px #0005;z-index:2}
 .install-guide .ri-menu:not([hidden]){animation:install-menu .3s cubic-bezier(.2,.8,.2,1)}
 .install-guide .ri-menu-row{display:flex;align-items:center;gap:13px;min-height:42px;padding:9px 12px;font-size:14px;border-bottom:1px solid #ffffff0d}

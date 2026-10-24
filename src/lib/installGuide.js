@@ -31,8 +31,8 @@ export const INSTALL_SCENES = [
   'Movie Night is ready on your Home Screen.',
 ];
 export const INSTALL_SCENE_MS = 1500;
-export const INSTALL_START_MS = 350;
-export const INSTALL_END_HOLD_MS = 1500;
+export const INSTALL_START_MS = 1000;
+export const INSTALL_END_HOLD_MS = 2000;
 
 export function installSceneDelay(scene) {
   if (scene === 0) return INSTALL_START_MS;
