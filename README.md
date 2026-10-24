@@ -145,7 +145,9 @@ stored in Firestore so both of you see it after either one sets it.
 ## 6. Add it to your phone
 
 The room-code page offers an iPhone Safari welcome sheet with an embedded,
-11-second installation animation. Continue, Escape, or tapping outside dismisses
+looping installation animation. It begins with an immediate tap cue, gives each
+action 1.2 seconds, and holds the final screen for 1.5 seconds before repeating.
+Continue, Escape, or tapping outside dismisses
 it; that choice is remembered on the device. The small “Add to Home Screen” link
 replays it. It stays hidden in installed Home Screen mode and in other browsers.
 Reduced-motion users get manual frame controls instead of autoplay.

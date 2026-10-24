@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Popcorn, BatteryFull, ChevronLeft, ChevronRight, RotateCw, PanelsTopLeft, ListFilter, Sparkles, Languages, Share, Bookmark, BookOpen, Search, ZoomIn, Radio, Image, Send, MessageCircle, Copy, Glasses, ChevronDown, ChevronUp, Star, StickyNote, PlusSquare, X, Camera, CalendarDays, CloudSun, Settings, Music, Clock, Pause, Play, RotateCcw } from 'lucide-react';
-import { INSTALL_SCENES, INSTALL_SCENE_MS } from '../lib/installGuide.js';
+import { INSTALL_SCENES, installSceneDelay } from '../lib/installGuide.js';
 import './install-guide.css';
 
 const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -62,8 +62,8 @@ export default function InstallGuide({ onClose }) {
     return () => { media.removeEventListener('change', change); document.removeEventListener('visibilitychange', visibility); };
   }, []);
   useEffect(() => {
-    if (!playing || reduced || scene === INSTALL_SCENES.length - 1) return;
-    const timer = setTimeout(() => { setScene(scene + 1); if (scene === INSTALL_SCENES.length - 2) setPlaying(false); }, INSTALL_SCENE_MS);
+    if (!playing || reduced) return;
+    const timer = setTimeout(() => setScene((scene + 1) % INSTALL_SCENES.length), installSceneDelay(scene));
     return () => clearTimeout(timer);
   }, [scene, playing, reduced]);
   useEffect(() => {
@@ -87,11 +87,10 @@ export default function InstallGuide({ onClose }) {
   }, [onClose]);
   function toggle() {
     if (reduced) { setScene((scene + 1) % INSTALL_SCENES.length); return; }
-    if (scene === INSTALL_SCENES.length - 1) { setScene(0); setPlaying(true); }
-    else setPlaying(v => !v);
+    setPlaying(v => !v);
   }
-  const label = reduced ? (scene === 5 ? 'Replay steps' : 'Next frame') : playing ? 'Pause animation' : scene === 5 ? 'Replay animation' : 'Play animation';
-  const Icon = playing ? Pause : scene === 5 ? RotateCcw : Play;
+  const label = reduced ? (scene === 5 ? 'Replay steps' : 'Next frame') : playing ? 'Pause animation' : 'Play animation';
+  const Icon = playing ? Pause : reduced && scene === 5 ? RotateCcw : Play;
   return createPortal(<div className="install-guide-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
     <section className="install-guide" ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <h2 id={titleId}>Movie Night.<br />On your Home Screen.</h2>
