@@ -21,10 +21,10 @@ test('the recording includes View More before adding the app', () => {
   assert.match(INSTALL_SCENES[3], /Add to Home Screen/);
   assert.match(INSTALL_SCENES[4], /Open as Web App/);
 });
-test('playback waits one second, gives actions 1.5 seconds, and holds the ending for two seconds', () => {
+test('playback waits one second, gives actions two seconds, and holds the ending for 2.5 seconds', () => {
   assert.equal(installSceneDelay(0), 1000);
-  for (const scene of [1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 1500);
-  assert.equal(installSceneDelay(5), 2000);
+  for (const scene of [1, 2, 3, 4]) assert.equal(installSceneDelay(scene), 2000);
+  assert.equal(installSceneDelay(5), 2500);
 });
 test('dismissing the welcome survives a refresh and leaves room data alone', () => {
   const values = new Map([['mn-room', 'movie-room'], ['mn-me:movie-room', '1']]);

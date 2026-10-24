@@ -146,7 +146,7 @@ stored in Firestore so both of you see it after either one sets it.
 
 The room-code page offers an iPhone Safari welcome sheet with an embedded,
 looping installation animation. It waits one second before starting, gives each
-action 1.5 seconds, and holds the final screen for two seconds before repeating.
+action two seconds, and holds the final screen for 2.5 seconds before repeating.
 Continue, Escape, or tapping outside dismisses
 it; that choice is remembered on the device. The small “Add to Home Screen” link
 replays it. It stays hidden in installed Home Screen mode and in other browsers.
